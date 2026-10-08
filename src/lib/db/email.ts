@@ -1,8 +1,8 @@
 import { getDb, getDbFromEnv } from './common';
-import { sql, inArray, desc, and, isNull, isNotNull, lt, eq, getTableColumns } from 'drizzle-orm';
+import { sql, inArray, desc, and, or, isNull, isNotNull, lt, eq, getTableColumns } from 'drizzle-orm';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
-import type { Email, NewEmail, ListParams, ExtractResultType } from '@/types';
+import type { Email, NewEmail, ListParams, ExtractResultType, EmailFolder } from '@/types';
 
 const email = sqliteTable('email', {
   id: integer('id').primaryKey(),
@@ -22,7 +22,30 @@ const email = sqliteTable('email', {
   emailError: text('email_error'),
   readStatus: integer('read_status').default(0),
   deletedAt: text('deleted_at'),
+  archivedAt: text('archived_at'),
 });
+
+function folderCondition(folder: EmailFolder) {
+  if (folder === 'trash') return and(isNotNull(email.deletedAt), isNull(email.archivedAt))!;
+  if (folder === 'archive') return and(isNull(email.deletedAt), isNotNull(email.archivedAt))!;
+  return and(isNull(email.deletedAt), isNull(email.archivedAt))!;
+}
+
+function listCondition(params: ListParams) {
+  const conditions = [folderCondition(params.folder ?? 'inbox')];
+  if (params.readStatus === 0 || params.readStatus === 1) conditions.push(eq(email.readStatus, params.readStatus));
+  for (const [value, column] of [[params.emailType, email.emailType], [params.recipient, email.toAddress]] as const) {
+    const values = value?.split(',').map(t => t.trim()).filter(Boolean);
+    if (values?.length) conditions.push(inArray(column, values));
+  }
+  if (params.q?.trim()) {
+    // Search literal text, not SQL LIKE wildcards; never return bodies in the list.
+    const pattern = '%' + params.q.trim().replace(/[\\%_]/g, c => '\\' + c) + '%';
+    conditions.push(or(...[email.title, email.fromName, email.fromAddress, email.toAddress, email.bodyText]
+      .map(column => sql`${column} LIKE ${pattern} ESCAPE ${'\\'}`))!);
+  }
+  return and(...conditions)!;
+}
 
 const emailDB = {
   async getBody(id: number): Promise<Pick<Email, 'bodyText' | 'bodyHtml'> | null> {
@@ -32,105 +55,30 @@ const emailDB = {
   },
 
   async list(params: ListParams = {}): Promise<Email[]> {
-    const db = getDb();
-    const { limit = 100, offset = 0, readStatus, emailType, recipient, folder = 'inbox' } = params;
-
-    const conditions = [folder === 'trash' ? isNotNull(email.deletedAt) : isNull(email.deletedAt)];
-
-    if (readStatus === 1) {
-      conditions.push(sql`${email.readStatus} = 1`);
-    } else if (readStatus === 0) {
-      conditions.push(sql`${email.readStatus} = 0`);
-    }
-
-    if (emailType) {
-      const types = emailType.split(',').map(t => t.trim()).filter(Boolean);
-      if (types.length > 1) {
-        conditions.push(inArray(email.emailType, types));
-      } else if (types.length === 1) {
-        conditions.push(sql`${email.emailType} = ${types[0]}`);
-      }
-    }
-
-    if (recipient) {
-      const recipients = recipient.split(',').map(r => r.trim()).filter(Boolean);
-      if (recipients.length > 1) {
-        conditions.push(inArray(email.toAddress, recipients));
-      } else if (recipients.length === 1) {
-        conditions.push(sql`${email.toAddress} = ${recipients[0]}`);
-      }
-    }
-
-    // Lists never transfer full bodies: large HTML messages can exhaust Worker CPU
-    // while parsing/serializing a page. Fetch a body only when its mail is opened.
+    const { limit = 100, offset = 0, folder = 'inbox' } = params;
     const listColumns = {
       ...getTableColumns(email),
       bodyText: sql<null>`null`,
       bodyHtml: sql<null>`null`,
     };
-    let query;
-    if (conditions.length > 0) {
-      const whereClause = conditions.length === 1
-        ? conditions[0]
-        : conditions.reduce((acc, condition) => sql`${acc} AND ${condition}`);
-      query = db.select(listColumns).from(email).where(whereClause);
-    } else {
-      query = db.select(listColumns).from(email);
-    }
-
-    const rows = await query
-      .orderBy(desc(folder === 'trash' ? email.deletedAt : email.sentAt), desc(email.id))
-      .limit(limit)
-      .offset(offset);
-    return rows as Email[];
+    const date = folder === 'trash' ? email.deletedAt : folder === 'archive' ? email.archivedAt : email.sentAt;
+    return await getDb().select(listColumns).from(email).where(listCondition(params))
+      .orderBy(desc(date), desc(email.id)).limit(limit).offset(offset) as Email[];
   },
 
   async count(params: ListParams = {}): Promise<number> {
-    const db = getDb();
-    const { readStatus, emailType, recipient, folder = 'inbox' } = params;
-
-    const conditions = [folder === 'trash' ? isNotNull(email.deletedAt) : isNull(email.deletedAt)];
-
-    if (readStatus === 1) {
-      conditions.push(sql`${email.readStatus} = 1`);
-    } else if (readStatus === 0) {
-      conditions.push(sql`${email.readStatus} = 0`);
-    }
-
-    if (emailType) {
-      const types = emailType.split(',').map(t => t.trim()).filter(Boolean);
-      if (types.length > 1) {
-        conditions.push(inArray(email.emailType, types));
-      } else if (types.length === 1) {
-        conditions.push(sql`${email.emailType} = ${types[0]}`);
-      }
-    }
-
-    if (recipient) {
-      const recipients = recipient.split(',').map(r => r.trim()).filter(Boolean);
-      if (recipients.length > 1) {
-        conditions.push(inArray(email.toAddress, recipients));
-      } else if (recipients.length === 1) {
-        conditions.push(sql`${email.toAddress} = ${recipients[0]}`);
-      }
-    }
-
-    let query;
-    if (conditions.length > 0) {
-      const whereClause = conditions.length === 1
-        ? conditions[0]
-        : conditions.reduce((acc, condition) => sql`${acc} AND ${condition}`);
-      query = db.select({ count: sql<number>`count(*)` }).from(email).where(whereClause);
-    } else {
-      query = db.select({ count: sql<number>`count(*)` }).from(email);
-    }
-
-    const result = await query;
-    return result[0]?.count || 0;
+    const rows = await getDb().select({ count: sql<number>`count(*)` }).from(email).where(listCondition(params));
+    return rows[0]?.count || 0;
   },
+
+  async archive(items: number[]): Promise<void> {
+    await getDb().update(email).set({ archivedAt: new Date().toISOString() })
+      .where(and(inArray(email.id, items), folderCondition('inbox')));
+  },
+
   async delete(items: number[] = []): Promise<void> {
     const db = getDb();
-    await db.update(email).set({ deletedAt: new Date().toISOString() })
+    await db.update(email).set({ deletedAt: new Date().toISOString(), archivedAt: sql`null` })
       .where(and(inArray(email.id, items), isNull(email.deletedAt)));
   },
 
@@ -178,15 +126,15 @@ const emailDB = {
 
   async restore(items: number[]): Promise<void> {
     const db = getDb();
-    await db.update(email).set({ deletedAt: null })
-      .where(and(inArray(email.id, items), isNotNull(email.deletedAt)));
+    await db.update(email).set({ deletedAt: sql`null`, archivedAt: sql`null` })
+      .where(and(inArray(email.id, items), or(isNotNull(email.deletedAt), isNotNull(email.archivedAt))));
   },
 
   async trashExpiredByType(env: CloudflareEnv, types: string[], expiredDate: string, now: string): Promise<number> {
     if (types.length === 0) return 0;
     const db = getDbFromEnv(env);
     const result = await db.update(email).set({ deletedAt: now })
-      .where(and(inArray(email.emailType, types), lt(email.sentAt, expiredDate), isNull(email.deletedAt)));
+      .where(and(inArray(email.emailType, types), lt(email.sentAt, expiredDate), isNull(email.deletedAt), isNull(email.archivedAt)));
     return result.meta.changes;
   },
 
@@ -194,7 +142,7 @@ const emailDB = {
     const db = getDbFromEnv(env);
     // A single conditional DELETE protects restored messages from concurrent purges.
     const result = await db.delete(email)
-      .where(and(isNotNull(email.deletedAt), lt(email.deletedAt, cutoff)));
+      .where(and(isNotNull(email.deletedAt), isNull(email.archivedAt), lt(email.deletedAt, cutoff)));
     return result.meta.changes;
   },
 
@@ -210,13 +158,13 @@ const emailDB = {
     return row as Email;
   },
 
-  async getAllRecipients(): Promise<string[]> {
+  async getAllRecipients(folder: EmailFolder = 'inbox'): Promise<string[]> {
     const db = getDb();
 
     const recipients = await db
       .select({ toAddress: email.toAddress })
       .from(email)
-      .where(and(isNotNull(email.toAddress), isNull(email.deletedAt)))
+      .where(and(isNotNull(email.toAddress), folderCondition(folder)))
       .groupBy(email.toAddress)
       .orderBy(email.toAddress);
 

@@ -3,7 +3,7 @@
 import { useCallback, useState, useTransition, useEffect, type MouseEvent } from "react";
 import { useDevice } from "@/provider/Device";
 import useEmailStore from "@/lib/store/email";
-import { useDeleteEmail, useBatchDeleteEmails, useEmailListInfinite, useRestoreEmails } from "@/lib/hooks/useEmailApi";
+import { useDeleteEmail, useBatchDeleteEmails, useEmailListInfinite, useRestoreEmails, useArchiveEmails } from "@/lib/hooks/useEmailApi";
 import type { Email } from "@/types";
 import EmailListHeader from "@/components/email/EmailListHeader";
 import EmailListContent from "@/components/email/EmailListContent";
@@ -27,20 +27,24 @@ export default function EmailList() {
   const { data, isLoading, isFetching, refetch, fetchNextPage, hasNextPage } = useEmailListInfinite();
   const emails = useEmailStore((state) => state.emails);
   const selectedEmailId = useEmailStore((state) => state.selectedEmailId);
+  const openedEmail = useEmailStore(state => state.openedEmail);
   const selectEmail = useEmailStore((state) => state.selectEmail);
   const settingsOpen = useEmailStore((state) => state.settingsOpen);
   const setSettingsOpen = useEmailStore((state) => state.setSettingsOpen);
 
   const folder = useEmailStore((state) => state.folder);
   const restoreMutation = useRestoreEmails();
+  const archiveMutation = useArchiveEmails();
+  const filters = useEmailStore(state => state.filters);
 
   useEffect(() => {
     setSelectedEmails(new Set());
     setIsMobileDrawerOpen(false);
-  }, [folder]);
+  }, [folder, filters]);
 
   const deleteEmailMutation = useDeleteEmail();
   const batchDeleteMutation = useBatchDeleteEmails();
+  const mutationPending = deleteEmailMutation.isPending || batchDeleteMutation.isPending || restoreMutation.isPending || archiveMutation.isPending;
 
   useEffect(() => {
     if (data) {
@@ -53,7 +57,7 @@ export default function EmailList() {
   }, [data]);
 
   const loading = isLoading || isFetching;
-  const selectedEmail = emails.find((e) => e.id === selectedEmailId) || null;
+  const selectedEmail = emails.find((e) => e.id === selectedEmailId) || (openedEmail?.id === selectedEmailId ? openedEmail : null);
 
   const handleEmailClick = useCallback(
     (email: Email) => {
@@ -92,6 +96,17 @@ export default function EmailList() {
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
+
+  const handleEmailArchive = useCallback((emailId: number) => folder === 'archive'
+    ? restoreMutation.mutateAsync([emailId]) : archiveMutation.mutateAsync([emailId]),
+    [folder, restoreMutation, archiveMutation]);
+
+  const handleBatchArchive = useCallback(async () => {
+    if (!selectedEmails.size) return;
+    if (folder === 'archive') await restoreMutation.mutateAsync(Array.from(selectedEmails));
+    else await archiveMutation.mutateAsync(Array.from(selectedEmails));
+    setSelectedEmails(new Set());
+  }, [folder, selectedEmails, restoreMutation, archiveMutation]);
 
   const handleToggleSelectAll = useCallback(() => {
     setSelectedEmails((prev) => {
@@ -136,18 +151,20 @@ export default function EmailList() {
         <aside className="w-full md:w-[380px] lg:w-[420px] flex-shrink-0 border-r border-border flex flex-col bg-card overflow-hidden">
           <EmailListHeader
             selectedEmails={selectedEmails}
-            mutationPending={deleteEmailMutation.isPending || batchDeleteMutation.isPending || restoreMutation.isPending}
+            mutationPending={mutationPending}
             loading={loading}
             onRefresh={() => {
               void refetch();
             }}
             onToggleSelectAll={handleToggleSelectAll}
             onBatchDelete={handleBatchDelete}
+            onBatchArchive={handleBatchArchive}
             onClearSelection={() => setSelectedEmails(new Set())}
             onOpenSettings={handleOpenSettings}
           />
 
           {folder === 'trash' && <p className="px-4 py-2 text-sm text-muted-foreground border-b">{t('trashRetention')}</p>}
+          {folder === 'archive' && <p className="px-4 py-2 text-sm text-muted-foreground border-b">{t('archiveRetention')}</p>}
           <div className="flex-1 overflow-hidden">
             <EmailListInteractionsProvider
               value={{
@@ -155,6 +172,8 @@ export default function EmailList() {
                 onCopy: handleCopy,
                 onEmailClick: handleEmailClick,
                 onEmailDelete: handleEmailDelete,
+                onEmailArchive: handleEmailArchive,
+                mutationPending,
                 onAvatarToggle: handleAvatarToggle,
               }}
             >

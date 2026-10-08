@@ -12,10 +12,13 @@ async function listHandler(req: NextApiRequest, res: NextApiResponse) {
     return failure(res, 'Method not allowed', 405);
   }
 
-  const { limit, offset, read_status, email_type, recipient, folder } = req.query;
+  const { limit, offset, read_status, email_type, recipient, folder, q } = req.query;
 
-  if (folder !== undefined && folder !== 'inbox' && folder !== 'trash') {
-    return failure(res, 'folder must be inbox or trash', 400);
+  if (folder !== undefined && folder !== 'inbox' && folder !== 'archive' && folder !== 'trash') {
+    return failure(res, 'folder must be inbox, archive or trash', 400);
+  }
+  if (q !== undefined && (typeof q !== 'string' || q.length > 200)) {
+    return failure(res, 'q must be a string of at most 200 characters', 400);
   }
 
   if (limit !== undefined) {
@@ -65,7 +68,8 @@ async function listHandler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   const params: ListParams = {
-    folder: folder === 'trash' ? 'trash' : 'inbox',
+    folder: folder === 'trash' || folder === 'archive' ? folder : 'inbox',
+    q: typeof q === 'string' ? q.trim() : undefined,
     limit: limit ? Number(limit) : 100,
     offset: offset ? Number(offset) : 0,
     readStatus: read_status ? Number(read_status) : undefined,

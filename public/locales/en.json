@@ -80,5 +80,20 @@
   "restoreDescWithName": "Restore this email from {{name}} to the inbox?",
   "batchRestoreDesc": "Restore {{count}} selected emails to the inbox?",
   "trashRetention": "Emails are permanently removed by a scheduled task after 7 days in Trash. Restore them before cleanup.",
-  "trashedAt": "Moved to Trash: {{time}}"
+  "trashedAt": "Moved to Trash: {{time}}",
+  "archive": "Archive",
+  "archiveConfirm": "Archive emails",
+  "archiveDescWithName": "Archive the email from {{name}}? It will be retained and can be searched or restored to Inbox.",
+  "batchArchiveDesc": "Archive {{count}} selected emails? Their content and read status will be preserved outside Inbox.",
+  "archiveRetention": "Archived mail is retained and excluded from automatic cleanup. Restore it to Inbox at any time.",
+  "archivedAt": "Archived {{time}}",
+  "mailFolders": "Mail folders",
+  "searchEmails": "Search subject, sender or body",
+  "search": "Search",
+  "readStatusFilter": "Filter by read status",
+  "allMail": "All",
+  "unreadMail": "Unread",
+  "readMail": "Read",
+  "noSearchResults": "No matching mail in this folder. Adjust your search.",
+  "emptyFolderDesc": "This folder is empty."
 }

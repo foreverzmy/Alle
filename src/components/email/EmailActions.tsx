@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 
-import { Trash2, RotateCcw } from "lucide-react";
+import { Trash2, RotateCcw, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEmailListInteractions } from "@/components/email/EmailListInteractionsContext";
 import DeleteDialog from "@/components/common/DeleteDialog";
@@ -20,9 +20,11 @@ export default function EmailActions({
   emailName,
   isSelectionMode,
 }: EmailActionsProps) {
-  const isTrash = useEmailStore((state) => state.folder === 'trash');
+  const folder = useEmailStore((state) => state.folder);
+  const isTrash = folder === 'trash';
+  const isArchive = folder === 'archive';
   const { t } = useTranslation();
-  const { onEmailDelete } = useEmailListInteractions();
+  const { onEmailDelete, onEmailArchive, mutationPending } = useEmailListInteractions();
 
   if (isSelectionMode || !onEmailDelete) {
     return <div className="w-9 h-9" />;
@@ -38,10 +40,20 @@ export default function EmailActions({
         transition={{ duration: 0.2 }}
         className="flex items-center justify-center"
       >
+        {!isTrash && onEmailArchive && <DeleteDialog
+          trigger={<Button variant="ghost" size="icon" disabled={mutationPending}
+            aria-label={t(isArchive ? 'restore' : 'archive')}
+            onClick={event => event.stopPropagation()}>{isArchive ? <RotateCcw /> : <Archive />}</Button>}
+          title={t(isArchive ? 'restoreConfirm' : 'archiveConfirm')}
+          description={t(isArchive ? 'restoreDescWithName' : 'archiveDescWithName', { name: emailName })}
+          onConfirm={event => { event?.stopPropagation(); return onEmailArchive(emailId); }}
+          cancelText={t('cancel')} confirmText={t(isArchive ? 'restore' : 'archive')}
+        />}
         <DeleteDialog
           trigger={
             <Button
               aria-label={t(isTrash ? "restore" : "delete")}
+              disabled={mutationPending}
               variant="ghost"
               size="icon"
               className="hover:bg-destructive/10 hover:text-destructive"

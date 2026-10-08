@@ -80,5 +80,20 @@
   "restoreDescWithName": "将来自 {{name}} 的邮件恢复到收件箱？",
   "batchRestoreDesc": "将选中的 {{count}} 封邮件恢复到收件箱？",
   "trashRetention": "邮件移入垃圾箱满 7 天后，由定时任务永久删除。在清除前可恢复。",
-  "trashedAt": "移入时间：{{time}}"
+  "trashedAt": "移入时间：{{time}}",
+  "archive": "归档",
+  "archiveConfirm": "归档邮件",
+  "archiveDescWithName": "归档来自 {{name}} 的邮件？邮件将长期保留，可搜索和恢复到收件箱。",
+  "batchArchiveDesc": "归档选中的 {{count}} 封邮件？保留正文和已读状态，从收件箱移出。",
+  "archiveRetention": "归档邮件长期保留，不参与自动清理；可恢复到收件箱。",
+  "archivedAt": "归档于 {{time}}",
+  "mailFolders": "邮件文件夹",
+  "searchEmails": "搜索主题、发件人或正文",
+  "search": "搜索",
+  "readStatusFilter": "已读状态筛选",
+  "allMail": "全部",
+  "unreadMail": "未读",
+  "readMail": "已读",
+  "noSearchResults": "当前文件夹没有匹配的邮件，请调整搜索条件。",
+  "emptyFolderDesc": "当前文件夹暂无邮件。"
 }

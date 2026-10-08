@@ -259,3 +259,177 @@ test('config generation preserves hourly retention alongside custom inbox cleanu
     assert.ok(!fs.existsSync(path.join(root, '.env.local')));
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('archive migration preserves inbox and trash, with mutually exclusive folder states', () => {
+  const sqlite = new DatabaseSync(':memory:');
+  for (const file of ['0001_init.sql', '0002_add_read_status.sql', '0003_add_trash.sql']) {
+    sqlite.exec(fs.readFileSync(path.join(__dirname, '../migrations', file), 'utf8'));
+  }
+  sqlite.exec("INSERT INTO email(id, body_text, read_status, deleted_at) VALUES (1, 'Inbox', 0, NULL), (2, 'Trash', 1, '2026-10-08T00:00:00.000Z')");
+  sqlite.exec(fs.readFileSync(path.join(__dirname, '../migrations/0004_add_archive.sql'), 'utf8'));
+  assert.deepEqual(sqlite.prepare('SELECT id, body_text, read_status, archived_at FROM email ORDER BY id').all().map(r => ({ ...r })), [
+    { id: 1, body_text: 'Inbox', read_status: 0, archived_at: null },
+    { id: 2, body_text: 'Trash', read_status: 1, archived_at: null },
+  ]);
+  assert.throws(() => sqlite.exec("UPDATE email SET archived_at='2026-10-08T01:00:00.000Z' WHERE id=2"), /CHECK constraint/);
+  sqlite.close();
+});
+
+test('archive and restore preserve unread state and bodies, while clearing the unread inbox', async () => {
+  const { sqlite, emailDB, insert } = fixture();
+  insert(1); insert(2); insert(3, '2026-10-08T00:00:00.000Z');
+  await emailDB.markAsRead(2);
+  await emailDB.archive([1, 2, 3]); // Trash cannot be archived directly.
+  const firstArchivedAt = sqlite.prepare('SELECT archived_at FROM email WHERE id=1').get().archived_at;
+  await emailDB.archive([1]);
+  assert.equal(sqlite.prepare('SELECT archived_at FROM email WHERE id=1').get().archived_at, firstArchivedAt);
+  assert.equal(await emailDB.count(), 0);
+  assert.equal(await emailDB.count({ readStatus: 0 }), 0);
+  assert.equal(await emailDB.count({ folder: 'archive' }), 2);
+  assert.equal(await emailDB.count({ folder: 'archive', readStatus: 0 }), 1);
+  assert.equal(await emailDB.count({ folder: 'trash' }), 1);
+  assert.deepEqual(await emailDB.getAllRecipients(), []);
+  assert.deepEqual(await emailDB.getAllRecipients('archive'), ['mail1@example.com', 'mail2@example.com']);
+  assert.equal((await emailDB.getBody(1)).bodyText, 'Preserved text');
+  await emailDB.restore([1, 3]);
+  assert.equal(await emailDB.count({ readStatus: 0 }), 2);
+  assert.equal((await emailDB.list()).find(e => e.id === 1).archivedAt, null);
+  assert.equal((await emailDB.list()).find(e => e.id === 1).readStatus, 0);
+  assert.equal((await emailDB.list({ folder: 'archive' }))[0].readStatus, 1);
+  sqlite.close();
+});
+
+test('archive survives both automatic inbox cleanup and seven-day trash purging', async () => {
+  const { sqlite, emailDB, insert } = fixture();
+  insert(1, null, 'auth_code');
+  insert(2, '2020-01-01T00:00:00.000Z', 'auth_code');
+  insert(3, null, 'auth_code');
+  await emailDB.archive([1]);
+  sqlite.exec("UPDATE email SET archived_at='2020-01-01T00:00:00.000Z' WHERE id=1");
+  assert.equal(await emailDB.trashExpiredByType({}, ['auth_code'], '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'), 1);
+  assert.equal(await emailDB.purgeExpiredTrash({}, '2026-10-01T00:00:00.000Z'), 1);
+  assert.equal(await emailDB.count({ folder: 'archive' }), 1);
+  assert.equal((await emailDB.getBody(1)).bodyHtml, '<p>Preserved HTML</p>');
+  await emailDB.delete([1]); // Explicit move from Archive to Trash starts retention now.
+  assert.equal(await emailDB.count({ folder: 'archive' }), 0);
+  assert.equal(await emailDB.count({ folder: 'trash' }), 2);
+  assert.equal(sqlite.prepare('SELECT archived_at FROM email WHERE id=1').get().archived_at, null);
+  await emailDB.restore([1]);
+  assert.equal(await emailDB.count(), 1);
+  sqlite.close();
+});
+
+test('archive search matches literal text and combines folder, read status and recipient filters', async () => {
+  const { sqlite, emailDB, insert } = fixture();
+  insert(1); insert(2); insert(3); insert(4, '2026-10-08T00:00:00.000Z');
+  sqlite.exec("UPDATE email SET title='Budget 100%_\\ report', body_text='Needle in body' WHERE id=1");
+  sqlite.exec("UPDATE email SET title='Budget report', from_name='Special Sender' WHERE id=2");
+  await emailDB.archive([1, 2]);
+  for (const q of ['100%', '_', '\\', 'Needle']) {
+    assert.deepEqual((await emailDB.list({ folder: 'archive', q })).map(e => e.id), [1]);
+    assert.equal(await emailDB.count({ folder: 'archive', q }), 1);
+  }
+  assert.equal(await emailDB.count({ q: 'Needle' }), 0);
+  assert.equal(await emailDB.count({ folder: 'trash', q: 'Needle' }), 0);
+  assert.equal(await emailDB.count({ folder: 'archive', q: "' OR 1=1 --" }), 0);
+  assert.equal(await emailDB.count({ folder: 'archive', q: 'special sender' }), 1);
+  assert.equal(await emailDB.count({ folder: 'archive', q: 'budget', recipient: 'mail1@example.com', readStatus: 0 }), 1);
+  assert.equal(await emailDB.count({ folder: 'archive', q: 'budget', readStatus: 1 }), 0);
+  assert.equal((await emailDB.list({ folder: 'archive', q: 'budget', limit: 1, offset: 1 })).length, 1);
+  sqlite.close();
+});
+
+test('99-message archive, trash and restore batches stay within D1 bindings limits', async () => {
+  const { sqlite, emailDB, insert } = fixture();
+  const ids = Array.from({ length: 99 }, (_, i) => i + 1);
+  ids.forEach(id => insert(id));
+  await emailDB.archive(ids);
+  assert.equal(await emailDB.count({ folder: 'archive' }), 99);
+  await emailDB.restore(ids);
+  assert.equal(await emailDB.count(), 99);
+  await emailDB.archive(ids);
+  await emailDB.delete(ids);
+  assert.equal(await emailDB.count({ folder: 'archive' }), 0);
+  assert.equal(await emailDB.count({ folder: 'trash' }), 99);
+  await emailDB.restore(ids);
+  assert.equal(await emailDB.count(), 99);
+  sqlite.close();
+});
+
+test('archive API validates bounded positive IDs and blocks unauthenticated mutations', async () => {
+  const archived = [];
+  const overrides = {
+    '@/lib/auth/auth': h => h,
+    '@/lib/db/email': { archive: async ids => archived.push(ids) },
+    '@/types': loadTS('src/types/api.ts'),
+  };
+  const handler = loadTS('src/pages/api/email/archive.ts', overrides).default;
+  const response = () => ({ status(code) { this.code = code; return this; }, json(data) { this.data = data; } });
+  for (const body of [[], [0], [1.5], ['1'], [-1], [9007199254740992], new Array(100).fill(1), null]) {
+    const res = response(); await handler({ method: 'POST', body }, res); assert.equal(res.code, 400);
+  }
+  const invalidMethod = response(); await handler({ method: 'GET', body: [1] }, invalidMethod); assert.equal(invalidMethod.code, 405);
+  assert.deepEqual(archived, []);
+  const res = response(); await handler({ method: 'POST', body: [1, 2] }, res); assert.equal(res.code, 200);
+  assert.deepEqual(archived, [[1, 2]]);
+  const withAuth = loadTS('src/lib/auth/auth.ts', {
+    '@/types': loadTS('src/types/api.ts'), '@opennextjs/cloudflare': { getCloudflareContext: () => ({ env: {} }) },
+  }).default;
+  const protectedHandler = loadTS('src/pages/api/email/archive.ts', { ...overrides, '@/lib/auth/auth': withAuth }).default;
+  const anonymous = response(); await protectedHandler({ method: 'POST', body: [3], headers: {} }, anonymous);
+  assert.equal(anonymous.code, 401); assert.deepEqual(archived, [[1, 2]]);
+});
+
+test('list API accepts archive and bounded search while rejecting invalid folder or repeated search', async () => {
+  const received = [];
+  const handler = loadTS('src/pages/api/email/list.ts', {
+    '@/lib/auth/auth': h => h,
+    '@/lib/db/email': { list: async p => { received.push(p); return []; }, count: async () => 0 },
+    '@/types': loadTS('src/types/api.ts'),
+  }).default;
+  async function request(query) {
+    const res = { status(code) { this.code = code; return this; }, json(data) { this.data = data; } };
+    await handler({ method: 'GET', query }, res); return res;
+  }
+  for (const query of [{ folder: 'bad' }, { folder: ['archive'] }, { q: ['a', 'b'] }, { q: 'x'.repeat(201) }]) {
+    assert.equal((await request(query)).code, 400);
+  }
+  assert.deepEqual(received, []);
+  assert.equal((await request({ folder: 'archive', q: ' budget ', read_status: '0', limit: '50', offset: '0' })).code, 200);
+  assert.equal(received[0].folder, 'archive'); assert.equal(received[0].q, 'budget'); assert.equal(received[0].readStatus, 0);
+});
+
+test('reselecting a folder or repeating a search preserves cached visible mail', () => {
+  const store = loadTS('src/lib/store/email.ts').default;
+  const message = { id: 1, sentAt: '2026-10-08T00:00:00.000Z', archivedAt: null, deletedAt: null };
+  store.getState().setEmails([message], 1, false);
+  store.getState().setFolder('inbox');
+  store.getState().updateFilters({ q: '' });
+  assert.equal(store.getState().emails.length, 1);
+  store.getState().selectEmail(1);
+  store.getState().updateFilters({ readStatus: 'unread', q: 'budget' });
+  assert.equal(store.getState().emails.length, 0);
+  store.getState().setEmails([message], 1, false);
+  store.getState().updateFilters({ q: 'budget' });
+  assert.equal(store.getState().emails.length, 1);
+  store.getState().setFolder('archive');
+  assert.equal(store.getState().emails.length, 0);
+  assert.equal(store.getState().selectedEmailId, null);
+  assert.equal(store.getState().filters.q, '');
+  assert.equal(store.getState().filters.readStatus, 'all');
+});
+
+test('reading a message can clear its unread list without closing the opened body', () => {
+  const store = loadTS('src/lib/store/email.ts').default;
+  const message = { id: 1, sentAt: '2026-10-08T00:00:00.000Z', readStatus: 0, archivedAt: null, deletedAt: null };
+  store.getState().setEmails([message], 1, false);
+  store.getState().selectEmail(1);
+  store.getState().markEmail(1, true);
+  store.getState().setEmails([], 0, false);
+  assert.equal(store.getState().total, 0);
+  assert.equal(store.getState().selectedEmailId, 1);
+  assert.equal(store.getState().openedEmail.readStatus, 1);
+  store.getState().removeEmails([1]);
+  assert.equal(store.getState().openedEmail, null);
+  assert.equal(store.getState().selectedEmailId, null);
+});

@@ -1,9 +1,10 @@
 import { apiFetch, ApiError } from './client';
 
-import type { Email, ApiResponse, ExtractResultType } from '@/types';
+import type { Email, ApiResponse, ExtractResultType, EmailFolder } from '@/types';
 
 interface FetchEmailsParams {
-    folder?: 'inbox' | 'trash';
+    folder?: EmailFolder;
+    q?: string;
     limit?: number;
     offset?: number;
     readStatus?: number;
@@ -23,6 +24,7 @@ export async function fetchEmailBody(emailId: number, signal?: AbortSignal) {
 
 export async function fetchEmails({
     folder = 'inbox',
+    q = '',
     limit = 50,
     offset = 0,
     readStatus,
@@ -34,6 +36,7 @@ export async function fetchEmails({
         limit: String(limit),
         offset: String(offset),
     });
+    if (q.trim()) searchParams.set('q', q.trim());
 
     if (typeof readStatus === 'number') {
         searchParams.set('read_status', String(readStatus));
@@ -125,8 +128,8 @@ export async function updateEmail(emailId: number, emailResult: string | null, e
     return { emailId, emailResult, emailType };
 }
 
-export async function fetchRecipients() {
-    const response = await apiFetch('/api/email/recipients');
+export async function fetchRecipients(folder: EmailFolder = 'inbox') {
+    const response = await apiFetch(`/api/email/recipients?folder=${folder}`);
 
     if (!response.ok) {
         throw new ApiError('Failed to fetch recipients', response.status);
@@ -177,5 +180,20 @@ export async function restoreEmails(emailIds: number[]): Promise<number[]> {
     });
     const data = (await response.json()) as ApiResponse<null>;
     if (!data.success) throw new ApiError(data.error || 'Failed to restore emails', response.status);
+    return emailIds;
+}
+
+export async function archiveEmails(emailIds: number[]): Promise<number[]> {
+    if (emailIds.length > 99) {
+        for (let offset = 0; offset < emailIds.length; offset += 99) {
+            await archiveEmails(emailIds.slice(offset, offset + 99));
+        }
+        return emailIds;
+    }
+    const response = await apiFetch('/api/email/archive', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(emailIds),
+    });
+    const data = await response.json() as ApiResponse<null>;
+    if (!data.success) throw new ApiError(data.error || 'Failed to archive emails', response.status);
     return emailIds;
 }
