@@ -16,6 +16,7 @@
 	},
 	"triggers": {
 		"crons": [
+			"0 * * * *",
 			"0 0 1 1 *"
 		]
 	},
@@ -25,6 +26,7 @@
 		"ENABLE_AUTO_DEL": "false",
 		"AUTO_DEL_TYPE": "auth_code,auth_link",
 		"AUTO_DEL_TIME": "3600",
+		"AUTO_DEL_CRON": "0 0 1 1 *",
 		"WEBHOOK_URL": "",
 		"WEBHOOK_TYPE": "",
 		"WEBHOOK_TEMPLATE": "",
