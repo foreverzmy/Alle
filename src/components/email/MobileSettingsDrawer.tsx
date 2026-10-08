@@ -20,7 +20,7 @@ export default function MobileSettingsDrawer({ open, onOpenChange }: MobileSetti
           <DrawerDescription>{t("settingsDesc")}</DrawerDescription>
         </DrawerHeader>
         <div className="h-[85vh] overflow-hidden">
-          <Settings />
+          <Settings onClose={() => onOpenChange?.(false)} />
         </div>
       </DrawerContent>
     </Drawer>

@@ -15,7 +15,7 @@ export interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      theme: 'system',
+      theme: 'light',
       language: 'zh',
       autoRefreshInterval: 30000,
       editMode: false,

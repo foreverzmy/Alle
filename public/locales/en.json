@@ -95,5 +95,21 @@
   "unreadMail": "Unread",
   "readMail": "Read",
   "noSearchResults": "No matching mail in this folder. Adjust your search.",
-  "emptyFolderDesc": "This folder is empty."
+  "emptyFolderDesc": "This folder is empty.",
+  "workspace": "WORKSPACE",
+  "personalMailbox": "Your personal mailbox",
+  "workspaceNote": "A little less clutter. A little more clarity.",
+  "readingPane": "Message",
+  "readerEmptyTitle": "A little room for what matters",
+  "readerEmptyDesc": "Choose a message and take your time. Archive what matters, clear away the rest.",
+  "clearSearch": "Clear search",
+  "selectEmail": "Select mail from {{name}}",
+  "unknownSender": "Unknown sender",
+  "noSubject": "No subject",
+  "noResultsTitle": "No matching messages",
+  "inboxEmptyDesc": "All clear. New mail will appear here when it arrives.",
+  "unreadEmptyDesc": "No unread mail. You can get on with your day.",
+  "copy": "Copy",
+  "openLink": "Open link",
+  "close": "Close"
 }

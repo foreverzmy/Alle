@@ -13,6 +13,7 @@ import MobileSettingsDrawer from "@/components/email/MobileSettingsDrawer";
 import EmailDetail from "@/components/email/EmailDetail";
 import useTranslation from "@/lib/hooks/useTranslation";
 import Settings from "@/components/Settings";
+import EmailNavigation from '@/components/email/EmailNavigation';
 
 export default function EmailList() {
   const { t } = useTranslation();
@@ -146,9 +147,10 @@ export default function EmailList() {
   }, [hasNextPage, isFetching, fetchNextPage]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex h-screen overflow-hidden">
-        <aside className="w-full md:w-[380px] lg:w-[420px] flex-shrink-0 border-r border-border flex flex-col bg-card overflow-hidden">
+    <div className="bg-background">
+      <div className="flex h-dvh overflow-hidden">
+        <EmailNavigation pending={mutationPending} onNavigate={() => setSelectedEmails(new Set())} onSettings={handleOpenSettings} />
+        <aside className="flex w-full shrink-0 flex-col overflow-hidden border-r bg-card md:w-[350px] lg:w-[384px] 2xl:w-[400px]">
           <EmailListHeader
             selectedEmails={selectedEmails}
             mutationPending={mutationPending}
@@ -163,8 +165,8 @@ export default function EmailList() {
             onOpenSettings={handleOpenSettings}
           />
 
-          {folder === 'trash' && <p className="px-4 py-2 text-sm text-muted-foreground border-b">{t('trashRetention')}</p>}
-          {folder === 'archive' && <p className="px-4 py-2 text-sm text-muted-foreground border-b">{t('archiveRetention')}</p>}
+          {folder === 'trash' && <p className="border-b bg-muted/40 px-5 py-2.5 text-[11px] leading-relaxed text-muted-foreground">{t('trashRetention')}</p>}
+          {folder === 'archive' && <p className="border-b bg-muted/40 px-5 py-2.5 text-[11px] leading-relaxed text-muted-foreground">{t('archiveRetention')}</p>}
           <div className="flex-1 overflow-hidden">
             <EmailListInteractionsProvider
               value={{
@@ -192,8 +194,8 @@ export default function EmailList() {
           </div>
         </aside>
 
-        <main className="hidden md:flex flex-1 bg-background overflow-hidden">
-          <div className="w-full max-w-5xl mx-auto">{settingsOpen ? <Settings /> : <EmailDetail email={selectedEmail} />}</div>
+        <main className="hidden min-w-0 flex-1 overflow-hidden bg-background md:flex">
+          <div className="mx-auto w-full min-w-0">{settingsOpen ? <Settings /> : <EmailDetail email={selectedEmail} />}</div>
         </main>
       </div>
 

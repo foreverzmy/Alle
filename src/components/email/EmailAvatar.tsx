@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { apiFetch } from "@/lib/api/client";
-import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
+import { cn } from '@/lib/utils/utils';
 
 interface EmailAvatarProps {
   name: string;
   fromAddress?: string | null;
+  className?: string;
 }
 
 function getDomainFromEmail(email: string | null | undefined): string | null {
@@ -25,10 +26,8 @@ function getDomainFromEmail(email: string | null | undefined): string | null {
   return domain;
 }
 
-export default function EmailAvatar({ name, fromAddress }: EmailAvatarProps) {
+export default function EmailAvatar({ name, fromAddress, className }: EmailAvatarProps) {
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const previousTheme = useRef<string | undefined>(undefined);
   const { theme, resolvedTheme } = useTheme();
 
   useEffect(() => {
@@ -64,46 +63,15 @@ export default function EmailAvatar({ name, fromAddress }: EmailAvatarProps) {
     };
   }, [fromAddress, theme, resolvedTheme]);
 
-  useEffect(() => {
-    const currentTheme = resolvedTheme || theme;
-    if (previousTheme.current && previousTheme.current !== currentTheme) {
-      setIsTransitioning(true);
-      const timer = setTimeout(() => setIsTransitioning(false), 300);
-      return () => clearTimeout(timer);
-    }
-    previousTheme.current = currentTheme;
-  }, [theme, resolvedTheme]);
-
-  return (
-    <motion.div
-      initial={false}
-      animate={{
-        scale: isTransitioning ? 0.92 : 1,
-        opacity: isTransitioning ? 0.7 : 1,
-      }}
-      transition={{
-        duration: 0.25,
-        ease: "easeOut",
-      }}
-    >
-      <Avatar className="w-12 h-12 shadow-sm">
-        <AnimatePresence mode="wait">
-          {logoSrc && (
-            <motion.div
-              key={logoSrc}
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 1.1, opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-            >
-              <AvatarImage src={logoSrc} alt={name} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <AvatarFallback className="bg-gradient-to-br from-primary/10 to-primary/3 text-primary font-semibold text-lg">
-          {name?.[0] || "?"}
-        </AvatarFallback>
-      </Avatar>
-    </motion.div>
-  );
+  const colors = [
+    { background: '#edf4ef', color: '#507463' },
+    { background: '#eef2f7', color: '#61748e' },
+    { background: '#f4efe8', color: '#927957' },
+    { background: '#f3eef4', color: '#88728c' },
+  ];
+  const color = colors[(name?.codePointAt(0) || 0) % colors.length];
+  return <Avatar className={cn('size-9 rounded-xl', className)}>
+    {logoSrc && <AvatarImage src={logoSrc} alt={name} className="object-contain p-1.5" />}
+    <AvatarFallback style={color} className="rounded-xl text-sm font-medium">{name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+  </Avatar>;
 }

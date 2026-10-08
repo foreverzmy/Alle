@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useSettingsStore } from "@/lib/store/settings";
-import { Settings as SettingsIcon, LogOut, Trash2 } from "lucide-react";
+import { Settings as SettingsIcon, LogOut, Trash2, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import useAuthStore from "@/lib/store/auth";
 import useTranslation from "@/lib/hooks/useTranslation";
 import DeleteDialog from "@/components/common/DeleteDialog";
 
-export default function Settings() {
+export default function Settings({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const { setTheme } = useTheme();
   const { logout } = useAuthStore();
@@ -66,17 +66,18 @@ export default function Settings() {
     >
       {/* Header */}
       <div className="flex-shrink-0 border-b border-border bg-card">
-        <div className="p-6">
+        <div className="mx-auto w-full max-w-[760px] px-6 py-6 lg:px-8">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-primary/6 flex items-center justify-center">
                 <SettingsIcon className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-foreground">{t('settingsTitle')}</h2>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">{t('settingsTitle')}</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">{t('settingsDesc')}</p>
               </div>
             </div>
+            {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')}><X className="size-4" /></Button>}
           </div>
         </div>
       </div>
@@ -84,11 +85,11 @@ export default function Settings() {
       {/* Content */}
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full">
-          <div className="p-6 space-y-6">
+          <div className="mx-auto max-w-[760px] space-y-6 px-6 py-6 lg:px-8">
             {/* Appearance Section */}
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-1">{t('appearance')}</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-1">{t('appearance')}</h3>
                 <p className="text-sm text-muted-foreground">{t('appearanceDesc')}</p>
               </div>
 
@@ -103,7 +104,7 @@ export default function Settings() {
                       key={themeOption}
                       variant={storedTheme === themeOption ? 'default' : 'outline'}
                       onClick={() => handleThemeChange(themeOption as 'light' | 'dark' | 'system')}
-                      className="rounded-xl"
+                      className="rounded-lg shadow-none"
                     >
                       {t(themeOption)}
                     </Button>
@@ -118,14 +119,14 @@ export default function Settings() {
                   <Button
                     variant={storedLanguage === 'zh' ? 'default' : 'outline'}
                     onClick={() => setLanguage('zh')}
-                    className="rounded-xl"
+                    className="rounded-lg shadow-none"
                   >
                     中文
                   </Button>
                   <Button
                     variant={storedLanguage === 'en' ? 'default' : 'outline'}
                     onClick={() => setLanguage('en')}
-                    className="rounded-xl"
+                    className="rounded-lg shadow-none"
                   >
                     English
                   </Button>
@@ -136,7 +137,7 @@ export default function Settings() {
             {/* General Section */}
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-1">{t('general')}</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-1">{t('general')}</h3>
                 <p className="text-sm text-muted-foreground">{t('generalDesc')}</p>
               </div>
 
@@ -149,14 +150,14 @@ export default function Settings() {
                   <Button
                     variant={editMode ? 'default' : 'outline'}
                     onClick={() => setEditMode(true)}
-                    className="rounded-xl"
+                    className="rounded-lg shadow-none"
                   >
                     {t('enabled')}
                   </Button>
                   <Button
                     variant={!editMode ? 'default' : 'outline'}
                     onClick={() => setEditMode(false)}
-                    className="rounded-xl"
+                    className="rounded-lg shadow-none"
                   >
                     {t('disabled')}
                   </Button>
@@ -174,7 +175,7 @@ export default function Settings() {
                       key={option.value}
                       variant={autoRefreshInterval === option.value ? 'default' : 'outline'}
                       onClick={() => setAutoRefreshInterval(option.value)}
-                      className="rounded-xl"
+                      className="rounded-lg shadow-none"
                     >
                       {option.label}
                     </Button>
@@ -188,7 +189,7 @@ export default function Settings() {
             {/* Account Section */}
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-1">{t('account')}</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-1">{t('account')}</h3>
                 <p className="text-sm text-muted-foreground">{t('accountDesc')}</p>
               </div>
 
@@ -199,8 +200,8 @@ export default function Settings() {
                 <DeleteDialog
                   trigger={
                     <Button
-                      variant="destructive"
-                      className="w-full rounded-xl"
+                      variant="outline"
+                      className="w-full rounded-lg text-destructive shadow-none"
                     >
                       <LogOut className="h-4 w-4 mr-2" />
                       {t('logout')}
@@ -220,7 +221,7 @@ export default function Settings() {
                   trigger={
                     <Button
                       variant="outline"
-                      className="w-full rounded-xl border-destructive/20 text-destructive hover:bg-destructive/10"
+                      className="w-full rounded-lg shadow-none border-destructive/20 text-destructive hover:bg-destructive/10"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       {t('clearCache')}
