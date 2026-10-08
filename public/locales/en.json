@@ -111,5 +111,7 @@
   "close": "Close",
   "showMessageDetails": "Details",
   "hideMessageDetails": "Hide",
-  "messageBody": "Message body"
+  "messageBody": "Message body",
+  "markReadError": "The message is open, but its read status could not be updated.",
+  "retryMarkRead": "Retry marking as read"
 }

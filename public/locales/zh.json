@@ -111,5 +111,7 @@
   "close": "关闭",
   "showMessageDetails": "详情",
   "hideMessageDetails": "收起",
-  "messageBody": "邮件正文"
+  "messageBody": "邮件正文",
+  "markReadError": "邮件已打开，但已读状态更新失败。",
+  "retryMarkRead": "重试标记已读"
 }

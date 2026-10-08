@@ -299,6 +299,24 @@ test('archive and restore preserve unread state and bodies, while clearing the u
   sqlite.close();
 });
 
+test('reading one archived message updates only its read state and preserves archive content', async () => {
+  const { sqlite, emailDB, insert } = fixture();
+  insert(1); insert(2);
+  await emailDB.archive([1, 2]);
+  const archivedAt = sqlite.prepare('SELECT archived_at FROM email WHERE id=1').get().archived_at;
+  assert.equal(await emailDB.count({ folder: 'archive', readStatus: 0 }), 2);
+
+  await emailDB.markAsRead(1);
+  const read = (await emailDB.list({ folder: 'archive', readStatus: 1 }))[0];
+  assert.equal(read.id, 1);
+  assert.equal(read.archivedAt, archivedAt);
+  assert.equal(read.deletedAt, null);
+  assert.deepEqual(await emailDB.getBody(1), { bodyText: 'Preserved text', bodyHtml: '<p>Preserved HTML</p>' });
+  assert.deepEqual((await emailDB.list({ folder: 'archive', readStatus: 0 })).map(email => email.id), [2]);
+  assert.equal(await emailDB.count(), 0);
+  sqlite.close();
+});
+
 test('archive survives both automatic inbox cleanup and seven-day trash purging', async () => {
   const { sqlite, emailDB, insert } = fixture();
   insert(1, null, 'auth_code');
