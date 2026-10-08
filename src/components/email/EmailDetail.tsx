@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from 'react';
-import { Mail, Archive, Check, Inbox, X } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Mail, Archive, Check, ChevronDown, Inbox, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSettingsStore } from '@/lib/store/settings';
 import EmailContent from '@/components/email/EmailContent';
@@ -13,10 +13,8 @@ import { Button } from '@/components/ui/button';
 import type { Email } from '@/types';
 
 export default function EmailDetail({ email, onClose }: { email: Email | null; onClose?: () => void }) {
-  const { editMode } = useSettingsStore();
   const { mutate: markEmail } = useMarkEmail();
-  const { t, language } = useTranslation();
-  const body = useEmailBody(email?.id);
+  const { t } = useTranslation();
   useEffect(() => {
     if (!email || email.readStatus === 1 || email.deletedAt || email.archivedAt) return;
     markEmail({ emailId: email.id, isRead: true });
@@ -41,31 +39,68 @@ export default function EmailDetail({ email, onClose }: { email: Email | null; o
     </div>
   </div>;
 
+  // Remount the reader when selecting another message: reset body scroll and details.
+  return <EmailReader key={email.id} email={email} onClose={onClose} />;
+}
+
+function EmailReader({ email, onClose }: { email: Email; onClose?: () => void }) {
+  const { editMode } = useSettingsStore();
+  const { t, language } = useTranslation();
+  const body = useEmailBody(email.id);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const detailsId = useId();
+  const titleId = useId();
   const date = email.sentAt ? new Date(email.sentAt) : null;
   const time = date && !Number.isNaN(date.getTime()) ? date.toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-  return <div className="flex h-full min-w-0 flex-col bg-card">
-    <div className="flex h-[60px] shrink-0 items-center justify-between gap-2 border-b px-6 text-xs text-muted-foreground lg:px-9">
+  return <section aria-labelledby={titleId} className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
+    <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-5 text-xs text-muted-foreground lg:px-9">
       <span className="flex items-center gap-2"><Mail className="size-3.5" strokeWidth={1.7} />{t(email.deletedAt ? 'trash' : email.archivedAt ? 'archive' : 'inbox')}<span className="text-border">/</span>{t('readingPane')}</span>
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5 text-[10px]"><span className="size-1 rounded-full bg-primary/60" />{t(email.readStatus === 1 ? 'readMail' : 'unreadMail')}</span>
         {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')}><X className="size-4" /></Button>}
       </div>
     </div>
-    <ScrollArea className="min-h-0 flex-1">
-      <div className="mx-auto max-w-[860px] px-6 py-6 lg:px-8 lg:py-8">
-        <h2 className="break-words text-[23px] font-semibold leading-[1.45] tracking-[-0.7px] xl:text-[28px]">{email.title || t('noSubject')}</h2>
-        <div className="mt-6 flex items-start gap-3 border-b pb-5">
-          <EmailAvatar name={email.fromName || email.fromAddress || '?'} fromAddress={email.fromAddress} className="size-10" />
+    <header className="shrink-0 border-b bg-card">
+      <div className="mx-auto max-w-[860px] px-5 py-3 lg:px-8 lg:py-4">
+        <h2 id={titleId} className="line-clamp-2 break-words text-lg font-semibold leading-snug tracking-tight [@media(max-height:520px)]:line-clamp-1 lg:text-xl">{email.title || t('noSubject')}</h2>
+        <div className="mt-3 flex items-center gap-3">
+          <EmailAvatar name={email.fromName || email.fromAddress || '?'} fromAddress={email.fromAddress} className="size-8 shrink-0" />
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <p className="break-all text-[13px] font-medium">{email.fromName || email.fromAddress}</p><time className="text-[11px] tabular-nums text-muted-foreground">{time}</time>
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="min-w-0 truncate text-[13px] font-medium">{email.fromName || email.fromAddress || t('unknownSender')}</p>
+              <time className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{time}</time>
             </div>
-            <p className="mt-1 break-all text-[11px] text-muted-foreground">{email.fromAddress}</p>
-            <p className="mt-1 break-all text-[11px] text-muted-foreground">{t('to')} · {email.toAddress}</p>
+            <div className="mt-0.5 flex items-center justify-between gap-2">
+              <p className="min-w-0 truncate text-[11px] text-muted-foreground">{t('to')} · {email.toAddress}</p>
+              <Button variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-[11px] text-muted-foreground" aria-expanded={detailsOpen} aria-controls={detailsId} onClick={() => {
+                setDetailsOpen(!detailsOpen);
+                if (!detailsOpen) scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]')?.scrollTo({ top: 0 });
+              }}>
+                {t(detailsOpen ? 'hideMessageDetails' : 'showMessageDetails')}
+                <ChevronDown className={`size-3 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
+              </Button>
+            </div>
           </div>
         </div>
+      </div>
+    </header>
+    <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1" role="region" aria-label={t('messageBody')}>
+      <div className="mx-auto max-w-[860px] px-5 py-5 lg:px-8 lg:py-6">
+        <div id={detailsId} hidden={!detailsOpen}>
+          <dl className="mb-5 space-y-3 rounded-lg border bg-muted/30 p-4 text-xs">
+            {[
+              [t('subject'), email.title || t('noSubject')],
+              [t('from'), `${email.fromName || ''}${email.fromName && email.fromAddress ? ' · ' : ''}${email.fromAddress || ''}` || t('unknownSender')],
+              [t('to'), email.toAddress],
+              [t('sentAt'), time],
+            ].map(([label, value]) => <div key={label} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3">
+              <dt className="text-muted-foreground">{label}</dt><dd className="break-words [overflow-wrap:anywhere]">{value}</dd>
+            </div>)}
+          </dl>
+        </div>
         {editMode && !email.deletedAt && <div className="border-b py-5"><EmailEditResult email={email} /></div>}
-        <div className="pt-6">
+        <div className={editMode && !email.deletedAt ? 'pt-5' : undefined}>
           {body.isPending ? <p className="text-sm text-muted-foreground" role="status">{t('loading')}</p> : body.isError ? <div role="alert">
             <p className="mb-3 text-sm text-destructive">{t('emailBodyError')}</p>
             <Button variant="outline" disabled={body.isFetching} onClick={() => body.refetch()}>{t('retry')}</Button>
@@ -73,5 +108,5 @@ export default function EmailDetail({ email, onClose }: { email: Email | null; o
         </div>
       </div>
     </ScrollArea>
-  </div>;
+  </section>;
 }
