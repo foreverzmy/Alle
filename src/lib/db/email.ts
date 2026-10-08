@@ -1,5 +1,5 @@
 import { getDb, getDbFromEnv } from './common';
-import { sql, inArray, desc, and, isNull, isNotNull, lt } from 'drizzle-orm';
+import { sql, inArray, desc, and, isNull, isNotNull, lt, eq, getTableColumns } from 'drizzle-orm';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 import type { Email, NewEmail, ListParams, ExtractResultType } from '@/types';
@@ -25,6 +25,12 @@ const email = sqliteTable('email', {
 });
 
 const emailDB = {
+  async getBody(id: number): Promise<Pick<Email, 'bodyText' | 'bodyHtml'> | null> {
+    const rows = await getDb().select({ bodyText: email.bodyText, bodyHtml: email.bodyHtml })
+      .from(email).where(eq(email.id, id)).limit(1);
+    return rows[0] ?? null;
+  },
+
   async list(params: ListParams = {}): Promise<Email[]> {
     const db = getDb();
     const { limit = 100, offset = 0, readStatus, emailType, recipient, folder = 'inbox' } = params;
@@ -55,14 +61,21 @@ const emailDB = {
       }
     }
 
+    // Lists never transfer full bodies: large HTML messages can exhaust Worker CPU
+    // while parsing/serializing a page. Fetch a body only when its mail is opened.
+    const listColumns = {
+      ...getTableColumns(email),
+      bodyText: sql<null>`null`,
+      bodyHtml: sql<null>`null`,
+    };
     let query;
     if (conditions.length > 0) {
       const whereClause = conditions.length === 1
         ? conditions[0]
         : conditions.reduce((acc, condition) => sql`${acc} AND ${condition}`);
-      query = db.select().from(email).where(whereClause);
+      query = db.select(listColumns).from(email).where(whereClause);
     } else {
-      query = db.select().from(email);
+      query = db.select(listColumns).from(email);
     }
 
     const rows = await query

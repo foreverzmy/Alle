@@ -206,3 +206,7 @@ TELEGRAM_TYPE=auth_code,auth_link,service_link,subscription_link,other_link
 启用每小时清除前确认生产 D1 绑定与这项永久删除策略；没有 Cloudflare 管理权限扩展。
 
 本地验证使用 Node.js 24：`npm ci`、`npm test`、`npx tsc --noEmit`、`npm run build`。
+
+## 邮件列表与正文 API
+
+`GET /api/email/list` 返回分页摘要，`bodyText` 和 `bodyHtml` 为 `null`，避免一次加载几十封完整正文导致 Worker CPU 超限。阅读正文请使用同一登录授权调用 `GET /api/email/body?id=<邮件 ID>`，返回 `{ bodyText, bodyHtml }`。该接口也支持垃圾箱邮件，不改变已读状态。客户端会在打开邮件时加载正文，并显示加载失败及重试入口。

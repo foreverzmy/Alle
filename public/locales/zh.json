@@ -6,6 +6,8 @@
   "cancel": "取消",
   "confirm": "确认",
   "loading": "加载中...",
+  "emailBodyError": "邮件正文加载失败，请重试。",
+  "retry": "重试",
   "noEmails": "暂无邮件",
   "noEmailsDesc": "您的收件箱目前是空的，点击刷新按钮获取最新邮件",
   "refreshEmails": "刷新邮件",

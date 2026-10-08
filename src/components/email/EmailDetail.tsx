@@ -8,12 +8,16 @@ import { useSettingsStore } from "@/lib/store/settings";
 import EmailContent from "@/components/email/EmailContent";
 import EmailAvatar from "@/components/email/EmailAvatar";
 import EmailEditResult from "@/components/email/EmailEditResult";
-import { useMarkEmail } from "@/lib/hooks/useEmailApi";
+import { useMarkEmail, useEmailBody } from "@/lib/hooks/useEmailApi";
+import useTranslation from "@/lib/hooks/useTranslation";
+import { Button } from "@/components/ui/button";
 import type { Email } from "@/types";
 
 export default function EmailDetail({ email }: { email: Email | null }) {
   const { editMode } = useSettingsStore();
   const { mutate: markEmail } = useMarkEmail();
+  const { t } = useTranslation();
+  const body = useEmailBody(email?.id);
 
   useEffect(() => {
     if (!email || email.readStatus === 1 || email.deletedAt) {
@@ -161,10 +165,16 @@ export default function EmailDetail({ email }: { email: Email | null }) {
           transition={{ delay: 0.25, duration: 0.3 }}
         >
           {/* 邮件正文 */}
-          <EmailContent
-            bodyHtml={email.bodyHtml}
-            bodyText={email.bodyText}
-          />
+          {body.isPending ? (
+            <p className="p-6 text-sm text-muted-foreground" role="status">{t('loading')}</p>
+          ) : body.isError ? (
+            <div className="p-6" role="alert">
+              <p className="mb-3 text-sm text-destructive">{t('emailBodyError')}</p>
+              <Button variant="outline" disabled={body.isFetching} onClick={() => body.refetch()}>{t('retry')}</Button>
+            </div>
+          ) : (
+            <EmailContent bodyHtml={body.data.bodyHtml} bodyText={body.data.bodyText} />
+          )}
         </motion.div>
       </ScrollArea>
     </motion.div >
