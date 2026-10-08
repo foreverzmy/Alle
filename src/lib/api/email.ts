@@ -11,6 +11,16 @@ interface FetchEmailsParams {
     recipients?: string[];
 }
 
+export async function fetchEmailBody(emailId: number, signal?: AbortSignal) {
+    const response = await apiFetch(`/api/email/body?id=${emailId}`, { signal });
+    if (!response.ok) throw new ApiError('Failed to fetch email body', response.status);
+    const result = await response.json() as ApiResponse<Pick<Email, 'bodyText' | 'bodyHtml'>>;
+    if (!result.success || !result.data) {
+        throw new ApiError(result.error || 'Failed to fetch email body', response.status);
+    }
+    return result.data;
+}
+
 export async function fetchEmails({
     folder = 'inbox',
     limit = 50,

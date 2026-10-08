@@ -6,6 +6,8 @@
   "cancel": "Cancel",
   "confirm": "Confirm",
   "loading": "Loading...",
+  "emailBodyError": "Could not load the email body. Please retry.",
+  "retry": "Retry",
   "noEmails": "No emails",
   "noEmailsDesc": "Your inbox is currently empty. Click the refresh button to fetch the latest emails.",
   "refreshEmails": "Refresh Emails",

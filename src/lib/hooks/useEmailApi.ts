@@ -14,6 +14,13 @@ type EmailListPage = {
 
 type EmailListInfiniteData = InfiniteData<EmailListPage, number>;
 
+export const useEmailBody = (emailId: number | undefined) => useQuery({
+  queryKey: ['email-body', emailId],
+  queryFn: ({ signal }) => emailApi.fetchEmailBody(emailId!, signal),
+  enabled: emailId !== undefined,
+  staleTime: Infinity,
+  retry: 1,
+});
 
 export const useEmailListInfinite = () => {
   const { autoRefreshInterval } = useSettingsStore();

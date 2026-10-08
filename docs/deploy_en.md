@@ -201,3 +201,7 @@ Apply migration `0003_add_trash.sql` before deploying the Worker. GitHub Actions
 Direct D1 queries, including scheduled summaries, must filter `deleted_at IS NULL` to exclude Trash. Confirm the production DB binding and permanent cleanup policy before deployment.
 
 Validate locally with Node.js 24: `npm ci`, `npm test`, `npx tsc --noEmit`, and `npm run build`.
+
+## Email list and body API
+
+`GET /api/email/list` returns paginated summaries with `bodyText` and `bodyHtml` set to `null`, avoiding Worker CPU exhaustion from loading full bodies for an entire page. Read a body using the same login authorization with `GET /api/email/body?id=<email ID>`, which returns `{ bodyText, bodyHtml }`. This also supports Trash and does not mark mail as read. The client fetches the body when a message is opened and provides loading, error and retry states.

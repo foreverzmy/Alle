@@ -76,10 +76,67 @@ test('move, duplicate move, filtering, pagination and restoration preserve conte
   assert.equal(await emailDB.count(), 2);
   assert.equal(await emailDB.count({ folder: 'trash' }), 1);
   const restored = (await emailDB.list()).find(e => e.id === 1);
-  assert.equal(restored.bodyText, 'Preserved text');
-  assert.equal(restored.bodyHtml, '<p>Preserved HTML</p>');
+  const body = await emailDB.getBody(restored.id);
+  assert.equal(body.bodyText, 'Preserved text');
+  assert.equal(body.bodyHtml, '<p>Preserved HTML</p>');
   assert.equal(restored.deletedAt, null);
   sqlite.close();
+});
+
+test('large bodies stay out of paginated lists but remain available individually in either folder', async () => {
+  const { sqlite, emailDB, insert } = fixture();
+  insert(1); insert(2, '2026-10-08T00:00:00.000Z');
+  const largeHtml = '<p>' + 'x'.repeat(3_000_000) + '</p>';
+  sqlite.prepare('UPDATE email SET body_html=? WHERE id=1').run(largeHtml);
+  const inbox = await emailDB.list();
+  assert.equal(inbox[0].bodyHtml, null);
+  assert.equal(inbox[0].bodyText, null);
+  assert.ok(JSON.stringify(inbox).length < 2000);
+  assert.equal((await emailDB.getBody(1)).bodyHtml, largeHtml);
+  assert.equal((await emailDB.list({ folder: 'trash' }))[0].bodyHtml, null);
+  assert.equal((await emailDB.getBody(2)).bodyText, 'Preserved text');
+  assert.equal(await emailDB.getBody(999), null);
+  sqlite.close();
+});
+
+test('body API validates IDs, returns 404 and remains read only', async () => {
+  const calls = [];
+  const body = { bodyText: 'Text', bodyHtml: '<p>HTML</p>' };
+  const handler = loadTS('src/pages/api/email/body.ts', {
+    '@/lib/auth/auth': h => h,
+    '@/lib/db/email': { getBody: async id => { calls.push(id); return id === 1 ? body : null; } },
+    '@/types': loadTS('src/types/api.ts'),
+  }).default;
+  async function request(method, id) {
+    const res = { headers: {}, setHeader(k, v) { this.headers[k] = v; }, status(code) { this.code = code; return this; }, json(data) { this.data = data; } };
+    await handler({ method, query: { id } }, res);
+    return res;
+  }
+  assert.equal((await request('POST', '1')).code, 405);
+  for (const id of [undefined, ['1'], '0', '-1', '1.5', 'NaN', '9007199254740992']) {
+    assert.equal((await request('GET', id)).code, 400);
+  }
+  assert.deepEqual(calls, []);
+  assert.equal((await request('GET', '999')).code, 404);
+  const result = await request('GET', '1');
+  assert.equal(result.code, 200);
+  assert.deepEqual(result.data.data, body);
+  assert.equal(result.headers['Cache-Control'], 'private, no-store');
+});
+
+test('body API blocks anonymous requests before reading content', async () => {
+  const withAuth = loadTS('src/lib/auth/auth.ts', {
+    '@/types': loadTS('src/types/api.ts'),
+    '@opennextjs/cloudflare': { getCloudflareContext: () => ({ env: {} }) },
+  }).default;
+  const handler = loadTS('src/pages/api/email/body.ts', {
+    '@/lib/auth/auth': withAuth,
+    '@/lib/db/email': { getBody: async () => assert.fail('anonymous body read') },
+    '@/types': loadTS('src/types/api.ts'),
+  }).default;
+  const res = { status(code) { this.code = code; return this; }, json(data) { this.data = data; } };
+  await handler({ method: 'GET', query: { id: '1' }, headers: {} }, res);
+  assert.equal(res.code, 401);
 });
 
 test('purge removes only Trash older than 7 days, never inbox or restored messages', async () => {
