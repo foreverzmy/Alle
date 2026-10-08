@@ -9,6 +9,8 @@ export interface EmailListInteractionsContextValue {
   onCopy: (id: string) => void;
   onEmailClick: (email: Email) => void;
   onEmailDelete?: (emailId: number) => void | Promise<unknown>;
+  onEmailArchive?: (emailId: number) => void | Promise<unknown>;
+  mutationPending?: boolean;
   onAvatarToggle: (email: Email, event: MouseEvent) => void;
 }
 

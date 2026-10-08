@@ -210,3 +210,15 @@ TELEGRAM_TYPE=auth_code,auth_link,service_link,subscription_link,other_link
 ## 邮件列表与正文 API
 
 `GET /api/email/list` 返回分页摘要，`bodyText` 和 `bodyHtml` 为 `null`，避免一次加载几十封完整正文导致 Worker CPU 超限。阅读正文请使用同一登录授权调用 `GET /api/email/body?id=<邮件 ID>`，返回 `{ bodyText, bodyHtml }`。该接口也支持垃圾箱邮件，不改变已读状态。客户端会在打开邮件时加载正文，并显示加载失败及重试入口。
+
+## 归档与未读收件箱
+
+`0004_add_archive.sql` 新增可空的 `archived_at` 及索引，保留已有邮件和已读状态。数据库约束禁止 `archived_at` 与 `deleted_at` 同时非空。收件箱为两者均 NULL；归档为 `archived_at` 非空且 `deleted_at` 为 NULL；垃圾箱为 `deleted_at` 非空且 `archived_at` 为 NULL。
+
+`POST /api/email/archive` 接收 1–99 个正整数 ID，将收件箱邮件归档；重复请求保留原归档时间，垃圾箱邮件须先恢复到收件箱。`POST /api/email/restore` 可将归档或垃圾箱邮件恢复到收件箱，同时清空两个时间字段。两种操作都保留 `read_status`。界面支持单封和批量操作；查看归档不会自动标为已读。手动将归档移入垃圾箱时清空归档标记，并从此时计算 7 天保留期。
+
+列表与收件人 API 支持 `folder=archive`。列表 `q`（最多 200 字符）在当前文件夹搜索主题、发件人、收件地址和纯文本正文，可结合 `read_status`、收件人及类型筛选；百分号和下划线按字面搜索。正文继续按需读取，不随分页列表返回。归档和垃圾箱均不计入默认收件箱及其未读数；归档不会批量改变邮件的已读状态。
+
+归档长期保留：旧的按类型/时间自动清理与垃圾箱 7 天清除均排除归档。恢复后的邮件重新参与原有收件箱自动清理规则。直接查询收件箱（包括定时摘要）必须同时过滤 `deleted_at IS NULL AND archived_at IS NULL`；若需要整理归档，另行查询归档文件夹。
+
+上线顺序：确认后应用 `0004_add_archive.sql`，部署包含归档功能的 Worker，再整理现有邮件。迁移本身不归档、不删除、不标记已读。GitHub Actions 已先迁移再部署；不要在归档了邮件后回滚到缺少归档过滤的旧版。此前的垃圾箱策略及 cron 不变。

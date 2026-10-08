@@ -20,7 +20,7 @@ export default function EmailDetail({ email }: { email: Email | null }) {
   const body = useEmailBody(email?.id);
 
   useEffect(() => {
-    if (!email || email.readStatus === 1 || email.deletedAt) {
+    if (!email || email.readStatus === 1 || email.deletedAt || email.archivedAt) {
       return;
     }
 

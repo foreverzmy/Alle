@@ -20,9 +20,11 @@ export interface Email {
   emailError: string | null;
   readStatus: number;
   deletedAt: string | null;
+  archivedAt: string | null;
 }
 
-export type NewEmail = Omit<Email, 'id' | 'deletedAt'>;
+export type NewEmail = Omit<Email, 'id' | 'deletedAt' | 'archivedAt'>;
+export type EmailFolder = 'inbox' | 'archive' | 'trash';
 
 // ====================
 // 邮件提取结果类型

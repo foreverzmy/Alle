@@ -118,6 +118,9 @@ export default function EmailListItem({
             {email.deletedAt && <p className="text-xs text-muted-foreground mb-2">
               {t('trashedAt', { time: new Date(email.deletedAt).toLocaleString() })}
             </p>}
+            {email.archivedAt && <p className="text-xs text-muted-foreground mb-2">
+              {t('archivedAt', { time: new Date(email.archivedAt).toLocaleString() })}
+            </p>}
             <VerificationDisplay email={email} />
           </div>
         </div>

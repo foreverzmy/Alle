@@ -1,7 +1,11 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Settings as SettingsIcon, CheckSquare, Square, Trash2, RotateCcw } from "lucide-react";
+import { RefreshCw, Settings as SettingsIcon, CheckSquare, Square, Trash2, RotateCcw, Archive, Search } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import type { EmailFolder } from '@/types';
+import type { ReadStatusFilter } from '@/lib/store/email';
 import { Button } from "@/components/ui/button";
 import DeleteDialog from "@/components/common/DeleteDialog";
 import useTranslation from "@/lib/hooks/useTranslation";
@@ -14,6 +18,7 @@ interface EmailListHeaderProps {
   onRefresh: () => void;
   onToggleSelectAll: () => void;
   onBatchDelete: () => Promise<void> | void;
+  onBatchArchive: () => Promise<void> | void;
   onClearSelection: () => void;
   onOpenSettings: () => void;
 }
@@ -25,6 +30,7 @@ export default function EmailListHeader({
   onRefresh,
   onToggleSelectAll,
   onBatchDelete,
+  onBatchArchive,
   onClearSelection,
   onOpenSettings,
 }: EmailListHeaderProps) {
@@ -32,6 +38,11 @@ export default function EmailListHeader({
   const folder = useEmailStore((state) => state.folder);
   const setFolder = useEmailStore((state) => state.setFolder);
   const isTrash = folder === 'trash';
+  const isArchive = folder === 'archive';
+  const filters = useEmailStore(state => state.filters);
+  const updateFilters = useEmailStore(state => state.updateFilters);
+  const [search, setSearch] = useState(filters.q);
+  useEffect(() => setSearch(filters.q), [filters.q, folder]);
   const totalCount = useEmailStore((state) => state.total);
   const emailCount = useEmailStore((state) => state.emails.length);
 
@@ -47,16 +58,17 @@ export default function EmailListHeader({
       className="flex items-center justify-between flex-wrap gap-2 px-6 py-3 border-b"
     >
       <div>
-        <h1 className="text-2xl font-bold text-foreground">{t(isTrash ? "trash" : "inbox")}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t(folder)}</h1>
         <p className="text-sm text-muted-foreground">
           {hasSelection ? t("selectedCount", { count: selectionCount }) : t("emailsCount", { count: totalCount })}
         </p>
       </div>
 
-      <Button variant="outline" disabled={mutationPending} onClick={() => {
-        onClearSelection();
-        setFolder(isTrash ? 'inbox' : 'trash');
-      }}>{t(isTrash ? 'inbox' : 'trash')}</Button>
+      <nav className="flex gap-1" aria-label={t('mailFolders')}>
+        {(['inbox', 'archive', 'trash'] as EmailFolder[]).map(item => <Button key={item} size="sm"
+          variant={folder === item ? 'secondary' : 'ghost'} aria-current={folder === item ? 'page' : undefined}
+          disabled={mutationPending} onClick={() => { onClearSelection(); setFolder(item); }}>{t(item)}</Button>)}
+      </nav>
 
       <AnimatePresence mode="popLayout">
         {hasSelection ? (
@@ -72,6 +84,8 @@ export default function EmailListHeader({
             <Button
               variant="ghost"
               size="icon"
+              disabled={mutationPending}
+              aria-label={t('selectAll')}
               onClick={onToggleSelectAll}
             >
               {isAllSelected ? (
@@ -97,11 +111,23 @@ export default function EmailListHeader({
               )}
             </Button>
 
+            {!isTrash && <DeleteDialog
+              trigger={<Button variant="ghost" size="icon" disabled={mutationPending}
+                aria-label={t(isArchive ? 'restore' : 'archive')}>
+                {isArchive ? <RotateCcw /> : <Archive />}
+              </Button>}
+              title={t(isArchive ? 'restoreConfirm' : 'archiveConfirm')}
+              description={t(isArchive ? 'batchRestoreDesc' : 'batchArchiveDesc', { count: selectionCount })}
+              onConfirm={() => onBatchArchive()} cancelText={t('cancel')}
+              confirmText={t(isArchive ? 'restore' : 'archive')}
+            />}
             <DeleteDialog
               trigger={
                 <Button
                   variant="ghost"
                   size="icon"
+                  disabled={mutationPending}
+                  aria-label={t(isTrash ? 'restore' : 'delete')}
                   className="hover:bg-destructive/10 hover:text-destructive"
                   onClick={(event) => event.stopPropagation()}
                 >
@@ -124,7 +150,7 @@ export default function EmailListHeader({
               confirmText={t(isTrash ? "restore" : "delete")}
             />
 
-            <Button variant="outline" onClick={onClearSelection}>{t("cancel")}</Button>
+            <Button variant="outline" disabled={mutationPending} onClick={onClearSelection}>{t("cancel")}</Button>
           </motion.div>
         ) : (
           <motion.div
@@ -154,6 +180,22 @@ export default function EmailListHeader({
           </motion.div>
         )}
       </AnimatePresence>
+      <form className="flex w-full gap-2" onSubmit={event => {
+        event.preventDefault();
+        if (!mutationPending) { onClearSelection(); updateFilters({ q: search.trim() }); }
+      }}>
+        <Input value={search} maxLength={200} disabled={mutationPending} aria-label={t('searchEmails')}
+          placeholder={t('searchEmails')} onChange={event => setSearch(event.target.value)} />
+        <Button type="submit" size="icon" variant="outline" disabled={mutationPending} aria-label={t('search')}><Search /></Button>
+        <select value={filters.readStatus} disabled={mutationPending} aria-label={t('readStatusFilter')}
+          className="rounded-md border bg-background px-2 text-sm" onChange={event => {
+            onClearSelection(); updateFilters({ readStatus: event.target.value as ReadStatusFilter });
+          }}>
+          <option value="all">{t('allMail')}</option>
+          <option value="unread">{t('unreadMail')}</option>
+          <option value="read">{t('readMail')}</option>
+        </select>
+      </form>
     </motion.header>
   );
 }

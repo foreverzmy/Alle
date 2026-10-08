@@ -1,4 +1,5 @@
 import type { NextApiResponse } from 'next';
+import type { EmailFolder } from './email';
 
 // ====================
 // API 响应类型
@@ -47,7 +48,8 @@ export const failure = (
 // ====================
 
 export interface ListParams {
-  folder?: 'inbox' | 'trash';
+  folder?: EmailFolder;
+  q?: string;
   limit?: number;
   offset?: number;
   readStatus?: number;

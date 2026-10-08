@@ -38,10 +38,11 @@ export const useEmailListInfinite = () => {
   const readStatusParam = filters.readStatus === 'read' ? 1 : filters.readStatus === 'unread' ? 0 : undefined;
 
   return useInfiniteQuery({
-    queryKey: ['emails', { folder, readStatus: filters.readStatus, emailTypes: normalizedEmailTypes, recipients: normalizedRecipients }],
+    queryKey: ['emails', { folder, q: filters.q, readStatus: filters.readStatus, emailTypes: normalizedEmailTypes, recipients: normalizedRecipients }],
     queryFn: async ({ pageParam = 0 }) => {
       const result = await emailApi.fetchEmails({
         folder,
+        q: filters.q,
         limit: 50,
         offset: pageParam,
         readStatus: readStatusParam,
@@ -121,14 +122,17 @@ export const useMarkEmail = () => {
           })),
         };
       });
+      // Recompute filtered unread lists and totals after reading a message.
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
     },
   });
 };
 
 export const useRecipients = () => {
+  const folder = useEmailStore((state) => state.folder);
   return useQuery({
-    queryKey: ['recipients'],
-    queryFn: emailApi.fetchRecipients,
+    queryKey: ['recipients', folder],
+    queryFn: () => emailApi.fetchRecipients(folder),
     staleTime: 5 * 60 * 1000,
   });
 };
@@ -154,6 +158,20 @@ export const useRestoreEmails = () => {
   const { removeEmails } = useEmailStore();
   return useMutation({
     mutationFn: emailApi.restoreEmails,
+    onError: () => { queryClient.invalidateQueries({ queryKey: ['emails'] }); },
+    onSuccess: (ids) => {
+      removeEmails(ids);
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['recipients'] });
+    },
+  });
+};
+
+export const useArchiveEmails = () => {
+  const queryClient = useQueryClient();
+  const removeEmails = useEmailStore((state) => state.removeEmails);
+  return useMutation({
+    mutationFn: emailApi.archiveEmails,
     onError: () => { queryClient.invalidateQueries({ queryKey: ['emails'] }); },
     onSuccess: (ids) => {
       removeEmails(ids);

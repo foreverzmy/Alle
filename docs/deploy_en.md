@@ -205,3 +205,15 @@ Validate locally with Node.js 24: `npm ci`, `npm test`, `npx tsc --noEmit`, and 
 ## Email list and body API
 
 `GET /api/email/list` returns paginated summaries with `bodyText` and `bodyHtml` set to `null`, avoiding Worker CPU exhaustion from loading full bodies for an entire page. Read a body using the same login authorization with `GET /api/email/body?id=<email ID>`, which returns `{ bodyText, bodyHtml }`. This also supports Trash and does not mark mail as read. The client fetches the body when a message is opened and provides loading, error and retry states.
+
+## Archive and unread Inbox
+
+`0004_add_archive.sql` adds nullable `archived_at` and an index without changing existing mail or read status. A database constraint prevents `archived_at` and `deleted_at` from both being non-null. Inbox has both null; Archive has only `archived_at`; Trash has only `deleted_at`.
+
+`POST /api/email/archive` accepts 1–99 positive integer IDs and archives Inbox messages. Repeated requests preserve the archive timestamp. Restore Trash to Inbox before archiving it. `POST /api/email/restore` restores either Archive or Trash to Inbox, clearing both timestamps. Neither action changes `read_status`. Single and batch actions are available in the UI. Viewing Archive does not mark it read automatically. Explicitly moving Archive to Trash clears its archive marker and starts the seven-day retention period.
+
+List and recipient APIs accept `folder=archive`. List `q` (up to 200 characters) searches subject, sender, recipient address and plain-text body within the selected folder, alongside read/type/recipient filters. Percent and underscore are literal characters. Full bodies still load separately. Archive and Trash are excluded from default Inbox and its unread count; archiving does not mark all mail read.
+
+Archive is retained indefinitely and excluded from both legacy type/age cleanup and seven-day Trash purging. Restored Inbox messages are subject to the existing inbox cleanup rules again. Direct Inbox queries, including summaries, must filter `deleted_at IS NULL AND archived_at IS NULL`. Query Archive separately when needed.
+
+After approval, apply migration 0004, deploy the Archive-aware Worker, then organize existing mail. The migration itself archives, deletes and marks no mail read. Actions already migrate before deployment. Do not roll back to an older version lacking archive filtering after archiving mail. Trash retention and cron schedules are unchanged.

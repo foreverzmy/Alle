@@ -10,8 +10,12 @@ async function recipientsHandler(req: NextApiRequest, res: NextApiResponse) {
     return failure(res, 'Method not allowed', 405);
   }
 
+  const folder = req.query.folder ?? 'inbox';
+  if (folder !== 'inbox' && folder !== 'archive' && folder !== 'trash') {
+    return failure(res, 'folder must be inbox, archive or trash', 400);
+  }
   try {
-    const recipients = await emailDB.getAllRecipients();
+    const recipients = await emailDB.getAllRecipients(folder);
     return success<string[]>(res, recipients);
   } catch (e) {
     console.error('Failed to fetch recipients:', e);
