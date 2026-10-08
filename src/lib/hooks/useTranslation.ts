@@ -6,9 +6,9 @@ import { useCallback, useEffect } from 'react';
 export default function useTranslation() {
     const { language } = useSettingsStore();
     const { loadTranslations, translations, isLoading } = useI18nStore();
-    const currentTranslations = translations[language];
+    const currentTranslations = translations[language] || translations.zh;
 
-    // 监听语言变化，自动加载对应翻译
+    // 保持共享语言状态同步；字典已随代码打包，无需网络加载。
     useEffect(() => {
         void loadTranslations(language);
     }, [language, loadTranslations]);
