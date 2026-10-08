@@ -3,6 +3,7 @@ import { apiFetch, ApiError } from './client';
 import type { Email, ApiResponse, ExtractResultType } from '@/types';
 
 interface FetchEmailsParams {
+    folder?: 'inbox' | 'trash';
     limit?: number;
     offset?: number;
     readStatus?: number;
@@ -11,6 +12,7 @@ interface FetchEmailsParams {
 }
 
 export async function fetchEmails({
+    folder = 'inbox',
     limit = 50,
     offset = 0,
     readStatus,
@@ -18,6 +20,7 @@ export async function fetchEmails({
     recipients = [],
 }: FetchEmailsParams = {}) {
     const searchParams = new URLSearchParams({
+        folder,
         limit: String(limit),
         offset: String(offset),
     });
@@ -70,7 +73,13 @@ export async function deleteEmail(emailId: number) {
     return emailId;
 }
 
-export async function batchDeleteEmails(emailIds: number[]) {
+export async function batchDeleteEmails(emailIds: number[]): Promise<number[]> {
+    if (emailIds.length > 99) {
+        for (let offset = 0; offset < emailIds.length; offset += 99) {
+            await batchDeleteEmails(emailIds.slice(offset, offset + 99));
+        }
+        return emailIds;
+    }
     const response = await apiFetch('/api/email/delete', {
         method: 'DELETE',
         headers: {
@@ -143,4 +152,20 @@ export async function mark(id: number, isRead: boolean) {
     }
 
     return { emailId: id, isRead };
+}
+export async function restoreEmails(emailIds: number[]): Promise<number[]> {
+    if (emailIds.length > 99) {
+        for (let offset = 0; offset < emailIds.length; offset += 99) {
+            await restoreEmails(emailIds.slice(offset, offset + 99));
+        }
+        return emailIds;
+    }
+    const response = await apiFetch('/api/email/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailIds),
+    });
+    const data = (await response.json()) as ApiResponse<null>;
+    if (!data.success) throw new ApiError(data.error || 'Failed to restore emails', response.status);
+    return emailIds;
 }

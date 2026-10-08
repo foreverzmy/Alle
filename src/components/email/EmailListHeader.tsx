@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Settings as SettingsIcon, CheckSquare, Square, Trash2 } from "lucide-react";
+import { RefreshCw, Settings as SettingsIcon, CheckSquare, Square, Trash2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DeleteDialog from "@/components/common/DeleteDialog";
 import useTranslation from "@/lib/hooks/useTranslation";
@@ -10,6 +10,7 @@ import useEmailStore from "@/lib/store/email";
 interface EmailListHeaderProps {
   selectedEmails: Set<number>;
   loading: boolean;
+  mutationPending: boolean;
   onRefresh: () => void;
   onToggleSelectAll: () => void;
   onBatchDelete: () => Promise<void> | void;
@@ -20,6 +21,7 @@ interface EmailListHeaderProps {
 export default function EmailListHeader({
   selectedEmails,
   loading,
+  mutationPending,
   onRefresh,
   onToggleSelectAll,
   onBatchDelete,
@@ -27,6 +29,9 @@ export default function EmailListHeader({
   onOpenSettings,
 }: EmailListHeaderProps) {
   const { t } = useTranslation();
+  const folder = useEmailStore((state) => state.folder);
+  const setFolder = useEmailStore((state) => state.setFolder);
+  const isTrash = folder === 'trash';
   const totalCount = useEmailStore((state) => state.total);
   const emailCount = useEmailStore((state) => state.emails.length);
 
@@ -39,14 +44,19 @@ export default function EmailListHeader({
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="flex items-center justify-between px-6 py-3 border-b"
+      className="flex items-center justify-between flex-wrap gap-2 px-6 py-3 border-b"
     >
       <div>
-        <h1 className="text-2xl font-bold text-foreground">{t("inbox")}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t(isTrash ? "trash" : "inbox")}</h1>
         <p className="text-sm text-muted-foreground">
           {hasSelection ? t("selectedCount", { count: selectionCount }) : t("emailsCount", { count: totalCount })}
         </p>
       </div>
+
+      <Button variant="outline" disabled={mutationPending} onClick={() => {
+        onClearSelection();
+        setFolder(isTrash ? 'inbox' : 'trash');
+      }}>{t(isTrash ? 'inbox' : 'trash')}</Button>
 
       <AnimatePresence mode="popLayout">
         {hasSelection ? (
@@ -100,19 +110,18 @@ export default function EmailListHeader({
                     whileTap={{ scale: 0.9 }}
                     transition={{ type: "spring", stiffness: 400, damping: 15 }}
                   >
-                    <Trash2 />
+                    {isTrash ? <RotateCcw /> : <Trash2 />}
                   </motion.div>
                 </Button>
               }
-              title={t("batchDeleteConfirm")}
-              description={t("batchDeleteDesc", { count: selectionCount })}
+              title={t(isTrash ? "restoreConfirm" : "batchDeleteConfirm")}
+              description={t(isTrash ? "batchRestoreDesc" : "batchDeleteDesc", { count: selectionCount })}
               onConfirm={(event) => {
                 event?.stopPropagation();
-                onBatchDelete();
+                return onBatchDelete();
               }}
               cancelText={t("cancel")}
-              confirmText={t("delete")}
-              allowUnsafeHtml
+              confirmText={t(isTrash ? "restore" : "delete")}
             />
 
             <Button variant="outline" onClick={onClearSelection}>{t("cancel")}</Button>

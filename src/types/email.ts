@@ -19,9 +19,10 @@ export interface Email {
   emailResultText: string | null;
   emailError: string | null;
   readStatus: number;
+  deletedAt: string | null;
 }
 
-export type NewEmail = Omit<Email, 'id'>;
+export type NewEmail = Omit<Email, 'id' | 'deletedAt'>;
 
 // ====================
 // 邮件提取结果类型

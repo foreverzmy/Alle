@@ -16,8 +16,8 @@ async function deleteHandler(req: NextApiRequest, res: NextApiResponse) {
     return failure(res, 'Request body must be an array of email IDs', 400);
   }
 
-  if (items.length === 0) {
-    return failure(res, 'At least one email ID is required', 400);
+  if (items.length === 0 || items.length > 99) {
+    return failure(res, 'Provide 1 to 99 email IDs', 400);
   }
 
   const invalidIds = items.filter(

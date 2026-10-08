@@ -12,7 +12,11 @@ async function listHandler(req: NextApiRequest, res: NextApiResponse) {
     return failure(res, 'Method not allowed', 405);
   }
 
-  const { limit, offset, read_status, email_type, recipient } = req.query;
+  const { limit, offset, read_status, email_type, recipient, folder } = req.query;
+
+  if (folder !== undefined && folder !== 'inbox' && folder !== 'trash') {
+    return failure(res, 'folder must be inbox or trash', 400);
+  }
 
   if (limit !== undefined) {
     const limitNum = Number(limit);
@@ -61,6 +65,7 @@ async function listHandler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   const params: ListParams = {
+    folder: folder === 'trash' ? 'trash' : 'inbox',
     limit: limit ? Number(limit) : 100,
     offset: offset ? Number(offset) : 0,
     readStatus: read_status ? Number(read_status) : undefined,

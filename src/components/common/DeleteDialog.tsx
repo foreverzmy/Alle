@@ -11,13 +11,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { MouseEvent, ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 
 interface DeleteDialogProps {
   trigger: ReactNode;
   title: string;
   description: string;
-  onConfirm: (event?: MouseEvent) => void;
+  onConfirm: (event?: MouseEvent) => void | Promise<unknown>;
   cancelText: string;
   confirmText: string;
   allowUnsafeHtml?: boolean;
@@ -32,8 +32,16 @@ export default function DeleteDialog({
   confirmText,
   allowUnsafeHtml = false,
 }: DeleteDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={(nextOpen) => {
+      if (pending) return;
+      setOpen(nextOpen);
+      setError(null);
+    }}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -44,10 +52,25 @@ export default function DeleteDialog({
             <AlertDialogDescription>{description}</AlertDialogDescription>
           )}
         </AlertDialogHeader>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending} onClick={(e) => e.stopPropagation()}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            disabled={pending}
+            onClick={async (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setPending(true);
+              setError(null);
+              try {
+                await onConfirm(event);
+                setOpen(false);
+              } catch (cause) {
+                setError(cause instanceof Error ? cause.message : String(cause));
+              } finally {
+                setPending(false);
+              }
+            }}
             className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
           >
             {confirmText}

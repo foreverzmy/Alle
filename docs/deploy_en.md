@@ -187,3 +187,17 @@ Subject: {title}
 Type: {emailType}
 Result: {emailResult}
 ```
+
+## Trash with seven-day retention
+
+Delete now moves messages to Trash. The list header switches between Inbox and Trash; individual and selected messages can be restored.
+Retention starts at the UTC `deleted_at` timestamp, not the sent date. An hourly scheduled task permanently deletes only messages older than 7 × 24 hours in Trash. Cleanup can occur on the next hourly run after expiry.
+Repeated deletes do not reset retention. Restoration preserves content and read status. Restored messages that still match optional inbox auto-clean rules can be moved back to Trash on the next auto-clean run.
+Existing automatic deletion now moves matching messages to Trash, preserving its `AUTO_DEL_CRON` schedule. Hourly Trash cleanup runs independently, including when `ENABLE_AUTO_DEL` is false.
+
+`GET /api/email/list` defaults to Inbox; `folder=trash` selects Trash. `DELETE /api/email/delete` performs soft deletion, and `POST /api/email/restore` accepts an ID array. Both mutation endpoints allow up to 99 IDs per request; the UI chunks larger selections. There is no immediate permanent-delete endpoint.
+
+Apply migration `0003_add_trash.sql` before deploying the Worker. GitHub Actions uses this order. The additive migration preserves all existing mail with a NULL `deleted_at`. Do not roll back to the former permanent-delete API.
+Direct D1 queries, including scheduled summaries, must filter `deleted_at IS NULL` to exclude Trash. Confirm the production DB binding and permanent cleanup policy before deployment.
+
+Validate locally with Node.js 24: `npm ci`, `npm test`, `npx tsc --noEmit`, and `npm run build`.

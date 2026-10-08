@@ -17,6 +17,7 @@ type EmailListInfiniteData = InfiniteData<EmailListPage, number>;
 
 export const useEmailListInfinite = () => {
   const { autoRefreshInterval } = useSettingsStore();
+  const folder = useEmailStore((state) => state.folder);
   const filters = useEmailStore((state) => state.filters);
 
   const normalizedEmailTypes = useMemo(() => {
@@ -30,9 +31,10 @@ export const useEmailListInfinite = () => {
   const readStatusParam = filters.readStatus === 'read' ? 1 : filters.readStatus === 'unread' ? 0 : undefined;
 
   return useInfiniteQuery({
-    queryKey: ['emails', { readStatus: filters.readStatus, emailTypes: normalizedEmailTypes, recipients: normalizedRecipients }],
+    queryKey: ['emails', { folder, readStatus: filters.readStatus, emailTypes: normalizedEmailTypes, recipients: normalizedRecipients }],
     queryFn: async ({ pageParam = 0 }) => {
       const result = await emailApi.fetchEmails({
+        folder,
         limit: 50,
         offset: pageParam,
         readStatus: readStatusParam,
@@ -67,6 +69,7 @@ export const useDeleteEmail = () => {
     onSuccess: (emailId) => {
       removeEmail(emailId);
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['recipients'] });
     },
   });
 };
@@ -77,9 +80,11 @@ export const useBatchDeleteEmails = () => {
 
   return useMutation({
     mutationFn: emailApi.batchDeleteEmails,
+    onError: () => { queryClient.invalidateQueries({ queryKey: ['emails'] }); },
     onSuccess: (emailIds) => {
       removeEmails(emailIds);
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['recipients'] });
     },
   });
 };
@@ -132,6 +137,21 @@ export const useUpdateEmail = () => {
     }) => emailApi.updateEmail(emailId, emailResult, emailType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['recipients'] });
+    },
+  });
+};
+
+export const useRestoreEmails = () => {
+  const queryClient = useQueryClient();
+  const { removeEmails } = useEmailStore();
+  return useMutation({
+    mutationFn: emailApi.restoreEmails,
+    onError: () => { queryClient.invalidateQueries({ queryKey: ['emails'] }); },
+    onSuccess: (ids) => {
+      removeEmails(ids);
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['recipients'] });
     },
   });
 };

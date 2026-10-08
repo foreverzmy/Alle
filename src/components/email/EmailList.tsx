@@ -3,7 +3,7 @@
 import { useCallback, useState, useTransition, useEffect, type MouseEvent } from "react";
 import { useDevice } from "@/provider/Device";
 import useEmailStore from "@/lib/store/email";
-import { useDeleteEmail, useBatchDeleteEmails, useEmailListInfinite } from "@/lib/hooks/useEmailApi";
+import { useDeleteEmail, useBatchDeleteEmails, useEmailListInfinite, useRestoreEmails } from "@/lib/hooks/useEmailApi";
 import type { Email } from "@/types";
 import EmailListHeader from "@/components/email/EmailListHeader";
 import EmailListContent from "@/components/email/EmailListContent";
@@ -11,9 +11,11 @@ import { EmailListInteractionsProvider } from "@/components/email/EmailListInter
 import MobileEmailDrawer from "@/components/email/MobileEmailDrawer";
 import MobileSettingsDrawer from "@/components/email/MobileSettingsDrawer";
 import EmailDetail from "@/components/email/EmailDetail";
+import useTranslation from "@/lib/hooks/useTranslation";
 import Settings from "@/components/Settings";
 
 export default function EmailList() {
+  const { t } = useTranslation();
   const { isMobile } = useDevice();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -28,6 +30,14 @@ export default function EmailList() {
   const selectEmail = useEmailStore((state) => state.selectEmail);
   const settingsOpen = useEmailStore((state) => state.settingsOpen);
   const setSettingsOpen = useEmailStore((state) => state.setSettingsOpen);
+
+  const folder = useEmailStore((state) => state.folder);
+  const restoreMutation = useRestoreEmails();
+
+  useEffect(() => {
+    setSelectedEmails(new Set());
+    setIsMobileDrawerOpen(false);
+  }, [folder]);
 
   const deleteEmailMutation = useDeleteEmail();
   const batchDeleteMutation = useBatchDeleteEmails();
@@ -72,8 +82,10 @@ export default function EmailList() {
   }, []);
 
   const handleEmailDelete = useCallback(
-    (emailId: number) => deleteEmailMutation.mutateAsync(emailId),
-    [deleteEmailMutation],
+    (emailId: number) => folder === 'trash'
+      ? restoreMutation.mutateAsync([emailId])
+      : deleteEmailMutation.mutateAsync(emailId),
+    [deleteEmailMutation, restoreMutation, folder],
   );
 
   const handleCopy = useCallback((id: string) => {
@@ -92,10 +104,14 @@ export default function EmailList() {
 
   const handleBatchDelete = useCallback(async () => {
     if (selectedEmails.size > 0) {
-      await batchDeleteMutation.mutateAsync(Array.from(selectedEmails));
+      if (folder === 'trash') {
+        await restoreMutation.mutateAsync(Array.from(selectedEmails));
+      } else {
+        await batchDeleteMutation.mutateAsync(Array.from(selectedEmails));
+      }
       setSelectedEmails(new Set());
     }
-  }, [batchDeleteMutation, selectedEmails]);
+  }, [batchDeleteMutation, restoreMutation, selectedEmails, folder]);
 
   const handleOpenSettings = useCallback(() => {
     if (isMobile) {
@@ -120,6 +136,7 @@ export default function EmailList() {
         <aside className="w-full md:w-[380px] lg:w-[420px] flex-shrink-0 border-r border-border flex flex-col bg-card overflow-hidden">
           <EmailListHeader
             selectedEmails={selectedEmails}
+            mutationPending={deleteEmailMutation.isPending || batchDeleteMutation.isPending || restoreMutation.isPending}
             loading={loading}
             onRefresh={() => {
               void refetch();
@@ -130,6 +147,7 @@ export default function EmailList() {
             onOpenSettings={handleOpenSettings}
           />
 
+          {folder === 'trash' && <p className="px-4 py-2 text-sm text-muted-foreground border-b">{t('trashRetention')}</p>}
           <div className="flex-1 overflow-hidden">
             <EmailListInteractionsProvider
               value={{
