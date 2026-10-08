@@ -22,13 +22,15 @@ const dedupeEmails = (emails: Email[]): Email[] => {
     map.set(email.id, email);
   }
   return Array.from(map.values()).sort((a, b) => {
-    const dateA = a.sentAt ? new Date(a.sentAt).getTime() : 0;
-    const dateB = b.sentAt ? new Date(b.sentAt).getTime() : 0;
+    const dateA = (a.deletedAt || a.sentAt) ? new Date((a.deletedAt || a.sentAt)!).getTime() : 0;
+    const dateB = (b.deletedAt || b.sentAt) ? new Date((b.deletedAt || b.sentAt)!).getTime() : 0;
     return dateB - dateA;
   });
 };
 
 interface EmailStoreState {
+  folder: 'inbox' | 'trash';
+  setFolder: (folder: 'inbox' | 'trash') => void;
   emails: Email[];
   total: number;
   hasMore: boolean;
@@ -51,6 +53,8 @@ interface EmailStoreState {
 }
 
 const useEmailStore = create<EmailStoreState>((set, get) => ({
+  folder: 'inbox',
+  setFolder: (folder) => set({ folder, emails: [], total: 0, selectedEmailId: null, visibleEmailId: null }),
   emails: [],
   total: 0,
   hasMore: false,

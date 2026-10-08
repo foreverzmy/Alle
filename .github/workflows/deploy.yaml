@@ -42,9 +42,9 @@ jobs:
         run: npm install
       - name: 生成配置 - Generate config
         run: npm run gen-config
+      - name: 应用数据库迁移 - Apply database migrations
+        run: npm run db:migrations:apply
       - name: 部署 - Deploy
         run: npm run deploy
       - name: 设置密钥 - Set secrets
         run: npm run secret
-      - name: 应用数据库迁移 - Apply database migrations
-        run: npm run db:migrations:apply

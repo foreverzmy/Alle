@@ -16,7 +16,7 @@ export default function EmailDetail({ email }: { email: Email | null }) {
   const { mutate: markEmail } = useMarkEmail();
 
   useEffect(() => {
-    if (!email || email.readStatus === 1) {
+    if (!email || email.readStatus === 1 || email.deletedAt) {
       return;
     }
 
@@ -139,7 +139,7 @@ export default function EmailDetail({ email }: { email: Email | null }) {
         </motion.div>
 
 
-        {editMode && (
+        {editMode && !email.deletedAt && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

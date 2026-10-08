@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useDevice } from "@/provider/Device";
 import { CheckSquare } from "lucide-react";
 import { useEmailListInteractions } from "@/components/email/EmailListInteractionsContext";
+import useTranslation from "@/lib/hooks/useTranslation";
 import useFormatTime from "@/lib/hooks/useFormatTime";
 import EmailAvatar from "@/components/email/EmailAvatar";
 import EmailActions from "@/components/email/EmailActions";
@@ -25,6 +26,7 @@ export default function EmailListItem({
   isSelected,
   isEmailSelected,
 }: EmailListItemProps) {
+  const { t } = useTranslation();
   const { isMobile } = useDevice();
   const formatTime = useFormatTime();
   const { onEmailClick, onAvatarToggle } = useEmailListInteractions();
@@ -113,6 +115,9 @@ export default function EmailListItem({
               </div>
             </div>
 
+            {email.deletedAt && <p className="text-xs text-muted-foreground mb-2">
+              {t('trashedAt', { time: new Date(email.deletedAt).toLocaleString() })}
+            </p>}
             <VerificationDisplay email={email} />
           </div>
         </div>

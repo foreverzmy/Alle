@@ -111,9 +111,9 @@
 
 需要支持JSON MODE,填写`OPENAI_API_KEY`,`OPENAI_BASE_URL`,`EXTRACT_MODEL`
 
-## 自动删除过期邮件
+## 自动移入垃圾箱
 
-`ENABLE_AUTO_DEL`填写true
+`ENABLE_AUTO_DEL`填写true。匹配的邮件会先移入垃圾箱，不会直接永久删除。
 
 `AUTO_DEL_TYPE` 支持的邮件类型
 
@@ -124,7 +124,7 @@ AUTO_DEL_TYPE=auth_code,auth_link,service_link,subscription_link,other_link
 
 `AUTO_DEL_TIME` 自动删除过期邮件时间,单位秒
 
-`AUTO_DEL_CRON` 自动删除过期邮件定时任务
+`AUTO_DEL_CRON` 收件箱自动清理时刻；独立的每小时触发器负责清除超过 7 天的垃圾箱邮件。
 
 ## WebHook 通知
 
@@ -188,3 +188,21 @@ TELEGRAM_TYPE=auth_code,auth_link,service_link,subscription_link,other_link
 类型: {emailType}
 结果: {emailResult}
 ```
+
+## 垃圾箱（保留 7 天）
+
+删除和批量删除现在将邮件移入垃圾箱。点击列表顶部的“垃圾箱”查看邮件，并恢复单封或选中邮件。
+以 `deleted_at`（UTC 移入时间）计算期限，超过 7 × 24 小时后由每小时任务永久删除；清除可能在到期后的下一小时发生。
+重复移入不会重新计时。恢复会清除移入时间并保留正文、识别结果和已读状态。
+如果启用了收件箱自动清理，恢复后仍符合其类型/时间规则的邮件会在下一次自动清理时再次移入垃圾箱。
+
+`GET /api/email/list` 默认只返回收件箱；`folder=trash` 返回垃圾箱。
+`DELETE /api/email/delete` 只进行软删除；`POST /api/email/restore` 接收 ID 数组。
+每个删除/恢复请求最多 99 个 ID，界面的批量操作自动分批。没有立即永久删除或清空垃圾箱接口。
+
+部署前先应用 `0003_add_trash.sql`，再部署 Worker。GitHub Actions 已按该顺序执行；旧代码能兼容新增列，但不要回滚到旧的永久删除接口。
+迁移保留已有邮件，所有已有记录的 `deleted_at` 初始为 NULL。
+若直接维护 D1 查询（例如邮件摘要），需要加 `WHERE deleted_at IS NULL`，避免读到垃圾箱邮件。
+启用每小时清除前确认生产 D1 绑定与这项永久删除策略；没有 Cloudflare 管理权限扩展。
+
+本地验证使用 Node.js 24：`npm ci`、`npm test`、`npx tsc --noEmit`、`npm run build`。

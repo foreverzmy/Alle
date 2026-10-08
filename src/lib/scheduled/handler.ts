@@ -1,40 +1,27 @@
 import emailDB from '@/lib/db/email';
 
+const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
 export default async function scheduledHandler(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     controller: ScheduledController,
     env: CloudflareEnv,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ctx: ExecutionContext
 ): Promise<void> {
+    const now = controller.scheduledTime;
+    // Trash retention is independent of optional inbox auto-cleaning.
+    const purged = await emailDB.purgeExpiredTrash(env, new Date(now - RETENTION_MS).toISOString());
+    console.log('Expired trash purged:', purged);
 
-    if (env.ENABLE_AUTO_DEL === 'false') {
-        console.log('Auto delete is disabled');
+    if (controller.cron !== env.AUTO_DEL_CRON) return;
+    if (env.ENABLE_AUTO_DEL?.trim().toLowerCase() !== 'true') return;
+    const types = (env.AUTO_DEL_TYPE || '').split(',').map(t => t.trim()).filter(Boolean);
+    const seconds = Number(env.AUTO_DEL_TIME || '3600');
+    if (types.length === 0 || !Number.isFinite(seconds) || seconds <= 0 ||
+        !Number.isFinite(now - seconds * 1000)) {
+        console.error('Invalid AUTO_DEL_TYPE or AUTO_DEL_TIME configuration');
         return;
     }
-    try {
-        const delTypeStr = env.AUTO_DEL_TYPE || '';
-        const delTime = parseInt(env.AUTO_DEL_TIME || '3600', 10);
-
-        if (!delTypeStr || isNaN(delTime)) {
-            console.error('Invalid AUTO_DEL_TYPE or AUTO_DEL_TIME configuration');
-            return;
-        }
-
-        const delTypes = delTypeStr.split(',').map(t => t.trim()).filter(t => t);
-        const expiredTime = Date.now() - (delTime * 1000);
-        const expiredDate = new Date(expiredTime).toISOString();
-
-        const deletedIds = await emailDB.deleteExpiredByType(env, delTypes, expiredDate);
-
-        if (deletedIds.length === 0) {
-            console.log('No expired emails found to delete');
-            return;
-        }
-
-        console.log(`Successfully deleted ${deletedIds.length} expired emails`);
-    } catch (error) {
-        console.error('Error in scheduled handler:', error);
-        throw error;
-    }
+    const trashed = await emailDB.trashExpiredByType(
+        env, types, new Date(now - seconds * 1000).toISOString(), new Date(now).toISOString(),
+    );
+    console.log('Expired inbox emails moved to trash:', trashed);
 }

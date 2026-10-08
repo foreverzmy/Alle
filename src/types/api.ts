@@ -47,6 +47,7 @@ export const failure = (
 // ====================
 
 export interface ListParams {
+  folder?: 'inbox' | 'trash';
   limit?: number;
   offset?: number;
   readStatus?: number;

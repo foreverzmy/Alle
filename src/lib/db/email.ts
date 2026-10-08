@@ -1,5 +1,5 @@
 import { getDb, getDbFromEnv } from './common';
-import { sql, inArray, desc } from 'drizzle-orm';
+import { sql, inArray, desc, and, isNull, isNotNull, lt } from 'drizzle-orm';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 import type { Email, NewEmail, ListParams, ExtractResultType } from '@/types';
@@ -21,14 +21,15 @@ const email = sqliteTable('email', {
   emailResultText: text('email_result_text'),
   emailError: text('email_error'),
   readStatus: integer('read_status').default(0),
+  deletedAt: text('deleted_at'),
 });
 
 const emailDB = {
   async list(params: ListParams = {}): Promise<Email[]> {
     const db = getDb();
-    const { limit = 100, offset = 0, readStatus, emailType, recipient } = params;
+    const { limit = 100, offset = 0, readStatus, emailType, recipient, folder = 'inbox' } = params;
 
-    const conditions = [];
+    const conditions = [folder === 'trash' ? isNotNull(email.deletedAt) : isNull(email.deletedAt)];
 
     if (readStatus === 1) {
       conditions.push(sql`${email.readStatus} = 1`);
@@ -65,7 +66,7 @@ const emailDB = {
     }
 
     const rows = await query
-      .orderBy(desc(email.sentAt))
+      .orderBy(desc(folder === 'trash' ? email.deletedAt : email.sentAt), desc(email.id))
       .limit(limit)
       .offset(offset);
     return rows as Email[];
@@ -73,9 +74,9 @@ const emailDB = {
 
   async count(params: ListParams = {}): Promise<number> {
     const db = getDb();
-    const { readStatus, emailType, recipient } = params;
+    const { readStatus, emailType, recipient, folder = 'inbox' } = params;
 
-    const conditions = [];
+    const conditions = [folder === 'trash' ? isNotNull(email.deletedAt) : isNull(email.deletedAt)];
 
     if (readStatus === 1) {
       conditions.push(sql`${email.readStatus} = 1`);
@@ -116,7 +117,8 @@ const emailDB = {
   },
   async delete(items: number[] = []): Promise<void> {
     const db = getDb();
-    await db.delete(email).where(inArray(email.id, items));
+    await db.update(email).set({ deletedAt: new Date().toISOString() })
+      .where(and(inArray(email.id, items), isNull(email.deletedAt)));
   },
 
   async update(params: {
@@ -161,28 +163,26 @@ const emailDB = {
   },
 
 
-  async deleteExpiredByType(env: CloudflareEnv, types: string[], expiredDate: string): Promise<number[]> {
+  async restore(items: number[]): Promise<void> {
+    const db = getDb();
+    await db.update(email).set({ deletedAt: null })
+      .where(and(inArray(email.id, items), isNotNull(email.deletedAt)));
+  },
+
+  async trashExpiredByType(env: CloudflareEnv, types: string[], expiredDate: string, now: string): Promise<number> {
+    if (types.length === 0) return 0;
     const db = getDbFromEnv(env);
+    const result = await db.update(email).set({ deletedAt: now })
+      .where(and(inArray(email.emailType, types), lt(email.sentAt, expiredDate), isNull(email.deletedAt)));
+    return result.meta.changes;
+  },
 
-    const typeConditions = types.map(type => sql`${email.emailType} = ${type}`);
-    const combinedCondition = typeConditions.length > 1
-      ? sql`${typeConditions[0]} OR ${typeConditions.slice(1).reduce((acc, condition) => sql`${acc} OR ${condition}`)}`
-      : typeConditions[0];
-
-    const expiredEmails = await db
-      .select({ id: email.id })
-      .from(email)
-      .where(
-        sql`(${combinedCondition}) AND ${email.sentAt} < ${expiredDate}`
-      );
-
-    if (!expiredEmails || expiredEmails.length === 0) {
-      return [];
-    }
-
-    const ids = expiredEmails.map((e: { id: number }) => e.id);
-    await db.delete(email).where(inArray(email.id, ids));
-    return ids;
+  async purgeExpiredTrash(env: CloudflareEnv, cutoff: string): Promise<number> {
+    const db = getDbFromEnv(env);
+    // A single conditional DELETE protects restored messages from concurrent purges.
+    const result = await db.delete(email)
+      .where(and(isNotNull(email.deletedAt), lt(email.deletedAt, cutoff)));
+    return result.meta.changes;
   },
 
   async create(env: CloudflareEnv, data: NewEmail): Promise<Email> {
@@ -203,7 +203,7 @@ const emailDB = {
     const recipients = await db
       .select({ toAddress: email.toAddress })
       .from(email)
-      .where(sql`${email.toAddress} IS NOT NULL`)
+      .where(and(isNotNull(email.toAddress), isNull(email.deletedAt)))
       .groupBy(email.toAddress)
       .orderBy(email.toAddress);
 

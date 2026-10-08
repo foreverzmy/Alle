@@ -33,7 +33,7 @@ const configContent = fs.readFileSync(configPath, 'utf-8');
 const config = JSON.parse(configContent);
 
 if (config.vars) {
-    ['ENABLE_AI_EXTRACT', 'EXTRACT_MODEL', 'JWT_MIN_TTL', 'JWT_MAX_TTL', 'ENABLE_AUTO_DEL', 'AUTO_DEL_TYPE', 'AUTO_DEL_TIME', 'WEBHOOK_URL', 'WEBHOOK_TYPE', 'WEBHOOK_TEMPLATE', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'TELEGRAM_TEMPLATE', 'TELEGRAM_TYPE']
+    ['ENABLE_AI_EXTRACT', 'EXTRACT_MODEL', 'JWT_MIN_TTL', 'JWT_MAX_TTL', 'ENABLE_AUTO_DEL', 'AUTO_DEL_TYPE', 'AUTO_DEL_TIME', 'AUTO_DEL_CRON', 'WEBHOOK_URL', 'WEBHOOK_TYPE', 'WEBHOOK_TEMPLATE', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'TELEGRAM_TEMPLATE', 'TELEGRAM_TYPE']
         .forEach(key => {
             if (envVars[key]) config.vars[key] = envVars[key];
         });
@@ -44,7 +44,8 @@ if (config.d1_databases?.[0]?.database_id && envVars.D1_DATABASE_ID) {
 }
 
 if (config.triggers?.crons?.[0] && envVars.AUTO_DEL_CRON) {
-    config.triggers.crons[0] = envVars.AUTO_DEL_CRON;
+    // Keep hourly trash purging even when an inbox cleanup cron is supplied.
+    config.triggers.crons = [...new Set(['0 * * * *', envVars.AUTO_DEL_CRON])];
 }
 
 fs.writeFileSync(configPath, JSON.stringify(config, null, '\t'), 'utf-8');

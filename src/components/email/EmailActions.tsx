@@ -2,10 +2,11 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 
-import { Trash2 } from "lucide-react";
+import { Trash2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEmailListInteractions } from "@/components/email/EmailListInteractionsContext";
 import DeleteDialog from "@/components/common/DeleteDialog";
+import useEmailStore from "@/lib/store/email";
 import useTranslation from "@/lib/hooks/useTranslation";
 
 interface EmailActionsProps {
@@ -19,6 +20,7 @@ export default function EmailActions({
   emailName,
   isSelectionMode,
 }: EmailActionsProps) {
+  const isTrash = useEmailStore((state) => state.folder === 'trash');
   const { t } = useTranslation();
   const { onEmailDelete } = useEmailListInteractions();
 
@@ -39,6 +41,7 @@ export default function EmailActions({
         <DeleteDialog
           trigger={
             <Button
+              aria-label={t(isTrash ? "restore" : "delete")}
               variant="ghost"
               size="icon"
               className="hover:bg-destructive/10 hover:text-destructive"
@@ -49,18 +52,18 @@ export default function EmailActions({
                 whileTap={{ scale: 0.9 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
               >
-                <Trash2 />
+                {isTrash ? <RotateCcw /> : <Trash2 />}
               </motion.div>
             </Button>
           }
-          title={t("deleteConfirm")}
-          description={t("deleteDescWithName", { name: emailName })}
+          title={t(isTrash ? "restoreConfirm" : "deleteConfirm")}
+          description={t(isTrash ? "restoreDescWithName" : "deleteDescWithName", { name: emailName })}
           onConfirm={(event) => {
             event?.stopPropagation();
-            onEmailDelete(emailId);
+            return onEmailDelete(emailId);
           }}
           cancelText={t("cancel")}
-          confirmText={t("delete")}
+          confirmText={t(isTrash ? "restore" : "delete")}
         />
       </motion.div>
     </AnimatePresence>
