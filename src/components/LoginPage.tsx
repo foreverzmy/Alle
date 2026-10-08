@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldError, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Mail, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
@@ -46,15 +47,20 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: (token: 
   };
 
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center px-4">
+    <main className="min-h-dvh bg-sidebar flex items-center justify-center px-5 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md"
+        className="w-full max-w-[380px]"
       >
-        <div className="bg-card rounded-lg shadow-lg p-8">
-          <h1 className="text-2xl font-bold text-foreground mb-6 text-center">Alle</h1>
+        <div className="mb-8 flex items-center justify-center gap-2.5">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Mail className="size-5" strokeWidth={1.7} /></span>
+          <span className="text-[30px] font-semibold tracking-[-1px]">Alle<span className="text-primary">.</span></span>
+        </div>
+        <div className="rounded-2xl border bg-card px-7 py-7 shadow-[0_8px_40px_-24px_rgba(38,52,47,0.16)]">
+          <h1 className="text-xl font-semibold tracking-tight">欢迎回来</h1>
+          <p className="mb-7 mt-2 text-xs text-muted-foreground">登录你的邮箱，让邮件井然有序。</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <FieldGroup>
@@ -63,6 +69,8 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: (token: 
                 <Input
                   id="username"
                   type="text"
+                  autoComplete="username"
+                  className="h-11 bg-muted/30 shadow-none"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   placeholder="请输入用户名"
@@ -76,6 +84,8 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: (token: 
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="current-password"
+                  className="h-11 bg-muted/30 shadow-none"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="请输入密码"
@@ -92,15 +102,15 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: (token: 
                   disabled={loading}
                 />
                 <FieldLabel htmlFor="trustDevice" className="cursor-pointer select-none">
-                  信任此设备（Token 永不过期）
+                  在此设备上保持登录
                 </FieldLabel>
               </Field>
             </FieldGroup>
 
             {error && <FieldError>{error}</FieldError>}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "登录中..." : "登录"}
+            <Button type="submit" className="mt-2 h-11 w-full" disabled={loading}>
+              {loading ? "登录中..." : "登录邮箱"}{!loading && <ArrowRight className="size-4" />}
             </Button>
           </form>
         </div>

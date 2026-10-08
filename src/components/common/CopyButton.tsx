@@ -4,6 +4,7 @@ import { useCallback, type MouseEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import useTranslation from "@/lib/hooks/useTranslation";
 import { cn } from "@/lib/utils/utils";
 
 interface CopyButtonProps {
@@ -14,6 +15,7 @@ interface CopyButtonProps {
 }
 
 export default function CopyButton({ text, isCopied, onCopy, className }: CopyButtonProps) {
+  const { t } = useTranslation();
   const handleCopy = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
@@ -25,6 +27,7 @@ export default function CopyButton({ text, isCopied, onCopy, className }: CopyBu
 
   return (
     <Button
+      aria-label={t(isCopied ? "copied" : "copy")}
       variant="ghost"
       size="icon"
       onClick={handleCopy}

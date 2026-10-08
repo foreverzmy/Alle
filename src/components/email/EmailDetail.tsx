@@ -1,182 +1,77 @@
 "use client";
 
-import { useEffect } from "react";
-import { motion } from "framer-motion";
-import { Mail } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSettingsStore } from "@/lib/store/settings";
-import EmailContent from "@/components/email/EmailContent";
-import EmailAvatar from "@/components/email/EmailAvatar";
-import EmailEditResult from "@/components/email/EmailEditResult";
-import { useMarkEmail, useEmailBody } from "@/lib/hooks/useEmailApi";
-import useTranslation from "@/lib/hooks/useTranslation";
-import { Button } from "@/components/ui/button";
-import type { Email } from "@/types";
+import { useEffect } from 'react';
+import { Mail, Archive, Check, Inbox, X } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSettingsStore } from '@/lib/store/settings';
+import EmailContent from '@/components/email/EmailContent';
+import EmailAvatar from '@/components/email/EmailAvatar';
+import EmailEditResult from '@/components/email/EmailEditResult';
+import { useMarkEmail, useEmailBody } from '@/lib/hooks/useEmailApi';
+import useTranslation from '@/lib/hooks/useTranslation';
+import { Button } from '@/components/ui/button';
+import type { Email } from '@/types';
 
-export default function EmailDetail({ email }: { email: Email | null }) {
+export default function EmailDetail({ email, onClose }: { email: Email | null; onClose?: () => void }) {
   const { editMode } = useSettingsStore();
   const { mutate: markEmail } = useMarkEmail();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const body = useEmailBody(email?.id);
-
   useEffect(() => {
-    if (!email || email.readStatus === 1 || email.deletedAt || email.archivedAt) {
-      return;
-    }
-
+    if (!email || email.readStatus === 1 || email.deletedAt || email.archivedAt) return;
     markEmail({ emailId: email.id, isRead: true });
   }, [email, markEmail]);
 
-  if (!email) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
-        className="flex items-center justify-center h-full w-full"
-      >
-        <div className="flex flex-col items-center text-center p-8">
-          <motion.div
-            initial={{ scale: 0, rotate: -15 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ delay: 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4"
-          >
-            <Mail className="h-10 w-10 text-muted-foreground" />
-          </motion.div>
-          <motion.h3
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-            className="text-lg font-semibold text-foreground mb-2"
-          >
-            选择一封邮件
-          </motion.h3>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.3 }}
-            className="text-sm text-muted-foreground max-w-sm"
-          >
-            从左侧列表中选择一封邮件以查看详细内容
-          </motion.p>
+  if (!email) return <div className="flex h-full flex-col">
+    <div className="flex h-[60px] shrink-0 items-center gap-2 border-b px-7 text-xs text-muted-foreground"><Mail className="size-3.5" strokeWidth={1.7} />{t('readingPane')}</div>
+    <div className="flex flex-1 items-center justify-center bg-muted/20 px-8">
+      <div className="mb-12 max-w-[320px] text-center">
+        <div className="relative mx-auto mb-8 flex h-[108px] w-[132px] items-center justify-center">
+          <div className="absolute inset-x-4 inset-y-3 rotate-[-8deg] rounded-2xl border bg-card" />
+          <div className="relative flex h-[82px] w-[108px] items-center justify-center rounded-2xl border bg-card shadow-[0_4px_18px_-12px_rgba(38,52,47,0.25)]"><Mail className="size-8 text-primary/65" strokeWidth={1} /></div>
+          <span className="absolute bottom-1 right-0 flex size-7 items-center justify-center rounded-full border-4 border-background bg-primary/12 text-primary"><Check className="size-3" /></span>
         </div>
-      </motion.div>
-    );
-  }
+        <h2 className="text-xl font-medium tracking-tight">{t('readerEmptyTitle')}</h2>
+        <p className="mt-3 text-[13px] leading-7 text-muted-foreground">{t('readerEmptyDesc')}</p>
+        <div className="mt-6 flex justify-center gap-6 border-t pt-6 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><Inbox className="size-3.5" />{t('inbox')}</span>
+          <span className="flex items-center gap-1.5"><Archive className="size-3.5" />{t('archive')}</span>
+        </div>
+      </div>
+    </div>
+  </div>;
 
-  // 格式化完整时间
-  const formatFullTime = (sentAt: string | null): string => {
-    if (!sentAt) return '';
-    const date = new Date(sentAt);
-    if (Number.isNaN(date.getTime())) return '';
-
-    return date.toLocaleString(undefined, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  return (
-    <motion.div
-      key={email.id}
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col h-full"
-    >
-      {/* 头部 + 邮件主题 */}
-      <div className="flex-shrink-0 bg-card">
-        <div className="p-6 pb-4">
-          <div className="flex items-start gap-4">
-            {/* Logo */}
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="flex-shrink-0"
-            >
-              <EmailAvatar
-                name={email.fromName || ""}
-                fromAddress={email.fromAddress}
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15, duration: 0.3 }}
-              className="flex-1 min-w-0"
-            >
-              <div>
-                <span className="mr-1 text-xl font-bold">{email.fromName}</span>
-                <span className="text-sm text-muted-foreground">
-                  {email.fromAddress}
-                </span>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground mr-1">
-                  {email.toAddress}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {formatFullTime(email.sentAt)}
-                </span>
-              </div>
-            </motion.div>
+  const date = email.sentAt ? new Date(email.sentAt) : null;
+  const time = date && !Number.isNaN(date.getTime()) ? date.toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  return <div className="flex h-full min-w-0 flex-col bg-card">
+    <div className="flex h-[60px] shrink-0 items-center justify-between gap-2 border-b px-6 text-xs text-muted-foreground lg:px-9">
+      <span className="flex items-center gap-2"><Mail className="size-3.5" strokeWidth={1.7} />{t(email.deletedAt ? 'trash' : email.archivedAt ? 'archive' : 'inbox')}<span className="text-border">/</span>{t('readingPane')}</span>
+      <div className="flex items-center gap-3">
+        <span className="flex items-center gap-1.5 text-[10px]"><span className="size-1 rounded-full bg-primary/60" />{t(email.readStatus === 1 ? 'readMail' : 'unreadMail')}</span>
+        {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')}><X className="size-4" /></Button>}
+      </div>
+    </div>
+    <ScrollArea className="min-h-0 flex-1">
+      <div className="mx-auto max-w-[860px] px-6 py-6 lg:px-8 lg:py-8">
+        <h2 className="break-words text-[23px] font-semibold leading-[1.45] tracking-[-0.7px] xl:text-[28px]">{email.title || t('noSubject')}</h2>
+        <div className="mt-6 flex items-start gap-3 border-b pb-5">
+          <EmailAvatar name={email.fromName || email.fromAddress || '?'} fromAddress={email.fromAddress} className="size-10" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <p className="break-all text-[13px] font-medium">{email.fromName || email.fromAddress}</p><time className="text-[11px] tabular-nums text-muted-foreground">{time}</time>
+            </div>
+            <p className="mt-1 break-all text-[11px] text-muted-foreground">{email.fromAddress}</p>
+            <p className="mt-1 break-all text-[11px] text-muted-foreground">{t('to')} · {email.toAddress}</p>
           </div>
         </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.3 }}
-          className="px-6 pb-2"
-        >
-          <h3 className="text-base font-semibold text-foreground leading-relaxed">
-            {email.title}
-          </h3>
-        </motion.div>
-
-
-        {editMode && !email.deletedAt && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.3 }}
-            className="px-6 pb-4"
-          >
-            <EmailEditResult email={email} />
-          </motion.div>
-        )}
-
-        <div className="border-b border-border"></div>
+        {editMode && !email.deletedAt && <div className="border-b py-5"><EmailEditResult email={email} /></div>}
+        <div className="pt-6">
+          {body.isPending ? <p className="text-sm text-muted-foreground" role="status">{t('loading')}</p> : body.isError ? <div role="alert">
+            <p className="mb-3 text-sm text-destructive">{t('emailBodyError')}</p>
+            <Button variant="outline" disabled={body.isFetching} onClick={() => body.refetch()}>{t('retry')}</Button>
+          </div> : <EmailContent key={email.id} bodyHtml={body.data.bodyHtml} bodyText={body.data.bodyText} />}
+        </div>
       </div>
-
-      {/* 内容区域 */}
-      <ScrollArea className="flex-1 min-h-0">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25, duration: 0.3 }}
-        >
-          {/* 邮件正文 */}
-          {body.isPending ? (
-            <p className="p-6 text-sm text-muted-foreground" role="status">{t('loading')}</p>
-          ) : body.isError ? (
-            <div className="p-6" role="alert">
-              <p className="mb-3 text-sm text-destructive">{t('emailBodyError')}</p>
-              <Button variant="outline" disabled={body.isFetching} onClick={() => body.refetch()}>{t('retry')}</Button>
-            </div>
-          ) : (
-            <EmailContent bodyHtml={body.data.bodyHtml} bodyText={body.data.bodyText} />
-          )}
-        </motion.div>
-      </ScrollArea>
-    </motion.div >
-  );
+    </ScrollArea>
+  </div>;
 }

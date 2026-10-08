@@ -21,6 +21,7 @@ interface DeleteDialogProps {
   cancelText: string;
   confirmText: string;
   allowUnsafeHtml?: boolean;
+  tone?: 'neutral' | 'destructive';
 }
 
 export default function DeleteDialog({
@@ -31,6 +32,7 @@ export default function DeleteDialog({
   cancelText,
   confirmText,
   allowUnsafeHtml = false,
+  tone = 'destructive',
 }: DeleteDialogProps) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -71,7 +73,7 @@ export default function DeleteDialog({
                 setPending(false);
               }
             }}
-            className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+            className={tone === 'destructive' ? 'bg-destructive text-white hover:bg-destructive/90' : undefined}
           >
             {confirmText}
           </AlertDialogAction>

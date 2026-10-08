@@ -1,130 +1,50 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { useMemo } from "react";
-import { useDevice } from "@/provider/Device";
-import { CheckSquare } from "lucide-react";
-import { useEmailListInteractions } from "@/components/email/EmailListInteractionsContext";
-import useTranslation from "@/lib/hooks/useTranslation";
-import useFormatTime from "@/lib/hooks/useFormatTime";
-import EmailAvatar from "@/components/email/EmailAvatar";
-import EmailActions from "@/components/email/EmailActions";
-import VerificationDisplay from "@/components/email/VerificationDisplay";
-import { cn } from "@/lib/utils/utils";
-import type { Email } from "@/types";
+import { Check, Circle } from 'lucide-react';
+import { useMemo } from 'react';
+import { useEmailListInteractions } from '@/components/email/EmailListInteractionsContext';
+import useTranslation from '@/lib/hooks/useTranslation';
+import useFormatTime from '@/lib/hooks/useFormatTime';
+import EmailAvatar from '@/components/email/EmailAvatar';
+import EmailActions from '@/components/email/EmailActions';
+import VerificationDisplay from '@/components/email/VerificationDisplay';
+import { cn } from '@/lib/utils/utils';
+import type { Email } from '@/types';
 
-interface EmailListItemProps {
-  email: Email;
-  index: number;
-  isSelected: boolean;
-  isEmailSelected: boolean;
-}
+interface Props { email: Email; index: number; isSelected: boolean; isEmailSelected: boolean; }
 
-export default function EmailListItem({
-  email,
-  index,
-  isSelected,
-  isEmailSelected,
-}: EmailListItemProps) {
+export default function EmailListItem({ email, isSelected, isEmailSelected }: Props) {
   const { t } = useTranslation();
-  const { isMobile } = useDevice();
   const formatTime = useFormatTime();
-  const { onEmailClick, onAvatarToggle } = useEmailListInteractions();
-
+  const { onEmailClick, onAvatarToggle, mutationPending } = useEmailListInteractions();
   const formattedTime = useMemo(() => formatTime(email.sentAt), [formatTime, email.sentAt]);
-  const isRead = email.readStatus === 1;
-  const isUnread = !isRead;
+  const name = email.fromName || email.fromAddress || t('unknownSender');
+  const unread = email.readStatus !== 1;
 
-  return (
-    <motion.div
-      key={email.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.5), duration: 0.3 }}
-    >
-      <div
-        className={`cursor-pointer border-l-4 px-4 py-3 transition-all duration-200 group ${isSelected && !isMobile
-          ? "border-l-primary bg-primary/10"
-          : "border-l-transparent hover:bg-accent"
-          }`}
-        onClick={() => onEmailClick(email)}
-      >
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0">
-            <AnimatePresence mode="wait">
-              {isEmailSelected ? (
-                <motion.div
-                  key="checkbox"
-                  initial={{ scale: 0, rotate: -90 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  exit={{ scale: 0, rotate: 90 }}
-                  transition={{ duration: 0.2, ease: "easeInOut" }}
-                  className="w-12 h-12 rounded-xl shadow-sm flex items-center justify-center bg-primary/10 border border-primary cursor-pointer"
-                  onClick={(event) => onAvatarToggle(email, event)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <CheckSquare className="text-primary" />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="avatar"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ duration: 0.2, ease: "easeInOut" }}
-                  onClick={(event) => onAvatarToggle(email, event)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="cursor-pointer"
-                >
-                  <EmailAvatar
-                    name={email.fromName || ""}
-                    fromAddress={email.fromAddress}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div className="flex w-0 min-w-0 flex-1 flex-col justify-center">
-            <div className="mb-3 flex flex-col">
-              <div className="flex items-center justify-between gap-2">
-                <h3
-                  className={cn(
-                    "flex-1 truncate text-sm",
-                    isUnread ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
-                  )}
-                >
-                  {email.fromName}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="flex-shrink-0 text-xs text-muted-foreground">
-                    {formattedTime}
-                  </span>
-                  <EmailActions
-                    emailId={email.id}
-                    emailName={email.fromName ?? ""}
-                    isSelectionMode={isEmailSelected}
-                  />
-                </div>
-              </div>
-
-              <div className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
-                {email.title}
-              </div>
-            </div>
-
-            {email.deletedAt && <p className="text-xs text-muted-foreground mb-2">
-              {t('trashedAt', { time: new Date(email.deletedAt).toLocaleString() })}
-            </p>}
-            {email.archivedAt && <p className="text-xs text-muted-foreground mb-2">
-              {t('archivedAt', { time: new Date(email.archivedAt).toLocaleString() })}
-            </p>}
-            <VerificationDisplay email={email} />
-          </div>
+  return <div className={cn('group relative cursor-pointer border-b border-border/65 px-5 py-3 transition-colors hover:bg-muted/65',
+    isSelected && 'bg-primary/6 hover:bg-primary/8', isEmailSelected && 'bg-primary/6')} onClick={event => { event.stopPropagation(); onEmailClick(email); }}>
+    {isSelected && <span className="absolute inset-y-4 left-0 w-[3px] rounded-r bg-primary" />}
+    <div className="flex gap-3">
+      <button type="button" disabled={mutationPending} aria-label={t('selectEmail', { name })} aria-pressed={isEmailSelected}
+        onClick={event => onAvatarToggle(email, event)} className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+        {isEmailSelected ? <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Check className="size-4" /></span> : <EmailAvatar name={name} fromAddress={email.fromAddress} />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <button type="button" className={cn('flex min-w-0 items-center gap-1.5 rounded text-left text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring', unread ? 'font-semibold' : 'font-medium')}
+            onClick={event => { event.stopPropagation(); onEmailClick(email); }}>
+            <span className="truncate">{name}</span>{unread && <Circle className="size-[5px] shrink-0 fill-primary text-primary" />}
+          </button>
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{formattedTime}</span>
         </div>
+        <button type="button" className="mt-1 block w-full truncate rounded text-left text-[13px] leading-relaxed text-foreground/80 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={event => { event.stopPropagation(); onEmailClick(email); }}>{email.title || t('noSubject')}</button>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-[10px] text-muted-foreground">{email.deletedAt ? t('trashedAt', { time: formatTime(email.deletedAt) }) : email.archivedAt ? t('archivedAt', { time: formatTime(email.archivedAt) }) : email.toAddress}</span>
+          <EmailActions emailId={email.id} emailName={name} isSelectionMode={isEmailSelected} />
+        </div>
+        <VerificationDisplay email={email} />
       </div>
-    </motion.div>
-  );
+    </div>
+  </div>;
 }

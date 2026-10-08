@@ -33,7 +33,7 @@ export default function MobileEmailDrawer({ open, email, onClose, onOpenChange }
           </DrawerDescription>
         </DrawerHeader>
         <div className="h-[85vh] overflow-hidden">
-          <EmailDetail email={email} />
+          <EmailDetail email={email} onClose={onClose} />
         </div>
       </DrawerContent>
     </Drawer>

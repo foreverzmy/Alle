@@ -12,7 +12,7 @@ import '@/styles/globals.css'
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <QueryProvider>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <DeviceProvider>
           <I18nProvider>
             <Head>
