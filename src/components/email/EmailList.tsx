@@ -193,7 +193,7 @@ export default function EmailList() {
         </aside>
 
         <main className="hidden min-w-0 flex-1 overflow-hidden bg-background md:flex">
-          <div className="mx-auto w-full min-w-0">{settingsOpen ? <Settings /> : <EmailDetail email={selectedEmail} />}</div>
+          <div className="mx-auto w-full min-w-0">{settingsOpen ? <Settings /> : <EmailDetail email={isMobile ? null : selectedEmail} />}</div>
         </main>
       </div>
 

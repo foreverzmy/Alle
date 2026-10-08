@@ -13,12 +13,7 @@ import { Button } from '@/components/ui/button';
 import type { Email } from '@/types';
 
 export default function EmailDetail({ email, onClose }: { email: Email | null; onClose?: () => void }) {
-  const { mutate: markEmail } = useMarkEmail();
   const { t } = useTranslation();
-  useEffect(() => {
-    if (!email || email.readStatus === 1 || email.deletedAt || email.archivedAt) return;
-    markEmail({ emailId: email.id, isRead: true });
-  }, [email, markEmail]);
 
   if (!email) return <div className="flex h-full flex-col">
     <div className="flex h-[60px] shrink-0 items-center gap-2 border-b px-7 text-xs text-muted-foreground"><Mail className="size-3.5" strokeWidth={1.7} />{t('readingPane')}</div>
@@ -47,6 +42,15 @@ function EmailReader({ email, onClose }: { email: Email; onClose?: () => void })
   const { editMode } = useSettingsStore();
   const { t, language } = useTranslation();
   const body = useEmailBody(email.id);
+  const { mutate: markEmail, isError: markFailed, isPending: markingRead } = useMarkEmail();
+  const attemptedRead = useRef(false);
+  useEffect(() => {
+    // Mark only a successfully loaded, opened message. Archiving alone preserves its status.
+    // One automatic attempt per opening also avoids duplicate requests and silent retry loops.
+    if (!body.isSuccess || email.readStatus === 1 || email.deletedAt || attemptedRead.current) return;
+    attemptedRead.current = true;
+    markEmail({ emailId: email.id, isRead: true });
+  }, [body.isSuccess, email.id, email.readStatus, email.deletedAt, markEmail]);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const detailsId = useId();
@@ -82,6 +86,10 @@ function EmailReader({ email, onClose }: { email: Email; onClose?: () => void })
     </header>
     <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1" role="region" aria-label={t('messageBody')}>
       <div className="mx-auto max-w-[860px] px-5 py-5 lg:px-8 lg:py-6">
+        {markFailed && email.readStatus !== 1 && !email.deletedAt && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
+          <p className="text-muted-foreground">{t('markReadError')}</p>
+          <Button variant="outline" size="sm" disabled={markingRead} aria-label={t('retryMarkRead')} onClick={() => markEmail({ emailId: email.id, isRead: true })}>{t('retry')}</Button>
+        </div>}
         <div id={detailsId} hidden={!detailsOpen}>
           <dl className="mb-5 space-y-3 rounded-lg border bg-muted/30 p-4 text-xs">
             {[
