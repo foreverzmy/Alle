@@ -13,7 +13,6 @@ import MobileSettingsDrawer from "@/components/email/MobileSettingsDrawer";
 import EmailDetail from "@/components/email/EmailDetail";
 import useTranslation from "@/lib/hooks/useTranslation";
 import Settings from "@/components/Settings";
-import EmailNavigation from '@/components/email/EmailNavigation';
 
 export default function EmailList() {
   const { t } = useTranslation();
@@ -149,7 +148,6 @@ export default function EmailList() {
   return (
     <div className="bg-background">
       <div className="flex h-dvh overflow-hidden">
-        <EmailNavigation pending={mutationPending} onNavigate={() => setSelectedEmails(new Set())} onSettings={handleOpenSettings} />
         <aside className="flex w-full shrink-0 flex-col overflow-hidden border-r bg-card md:w-[350px] lg:w-[384px] 2xl:w-[400px]">
           <EmailListHeader
             selectedEmails={selectedEmails}

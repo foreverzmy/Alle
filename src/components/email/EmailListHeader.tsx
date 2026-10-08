@@ -29,25 +29,25 @@ export default function EmailListHeader({ selectedEmails, loading, mutationPendi
   const count = selectedEmails.size;
 
   return <header className="shrink-0 border-b bg-card">
-    <div className="flex items-center justify-between px-5 pb-2 pt-4 md:hidden">
-      <span className="flex items-center gap-2 text-xl font-semibold tracking-tight"><Mail className="size-5 text-primary" />Alle<span className="-ml-2 text-primary">.</span></span>
-      <Button variant="ghost" size="icon-sm" onClick={onOpenSettings} disabled={mutationPending} aria-label={t('settings')}><Settings2 /></Button>
+    <h1 className="sr-only">{t(folder === 'inbox' && filters.readStatus === 'unread' ? 'unreadMail' : folder)}</h1>
+    <div className="flex items-center justify-between gap-3 px-5 py-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex items-center gap-2 text-xl font-semibold tracking-tight"><Mail className="size-[18px] text-primary" />Alle<span className="-ml-2 text-primary">.</span></span>
+        <p className="truncate text-[11px] text-muted-foreground">{t('emailsCount', { count: total })}</p>
+      </div>
+      <div className="flex items-center gap-0.5">
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={onRefresh} disabled={loading} aria-label={t('refresh')} title={t('refresh')}>
+          <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
+        </Button>
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={onOpenSettings} disabled={mutationPending} aria-label={t('settings')} title={t('settings')}><Settings2 className="size-4" /></Button>
+      </div>
     </div>
-    <nav className="mx-5 flex gap-1 border-b pb-2 md:hidden" aria-label={t('mailFolders')}>
+    <nav className="mx-5 mb-3 flex gap-1" aria-label={t('mailFolders')}>
       {(['inbox', 'archive', 'trash'] as EmailFolder[]).map(item => <Button key={item} size="sm" variant="ghost"
         className={cn('flex-1', folder === item && 'bg-primary/8 text-primary')}
         aria-current={folder === item ? 'page' : undefined} disabled={mutationPending}
-        onClick={() => { onClearSelection(); setFolder(item); }}>{t(item)}</Button>)}
+        onClick={() => { onClearSelection(); useEmailStore.getState().setSettingsOpen(false); setFolder(item); }}>{t(item)}</Button>)}
     </nav>
-    <div className="flex items-center justify-between px-5 pb-3 pt-4 md:pt-5">
-      <div>
-        <h1 className="text-[23px] font-semibold tracking-[-0.7px]">{t(folder === 'inbox' && filters.readStatus === 'unread' ? 'unreadMail' : folder)}</h1>
-        <p className="mt-1 text-xs text-muted-foreground">{t('emailsCount', { count: total })}</p>
-      </div>
-      <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={onRefresh} disabled={loading} aria-label={t('refresh')} title={t('refresh')}>
-        <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
-      </Button>
-    </div>
     <form className="relative mx-5 mb-3" onSubmit={event => {
       event.preventDefault(); if (!mutationPending) { onClearSelection(); updateFilters({ q: search.trim() }); }
     }}>
