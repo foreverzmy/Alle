@@ -25,14 +25,14 @@ export default function MobileEmailDrawer({ open, email, onClose, onOpenChange }
         onOpenChange?.(nextOpen);
       }}
     >
-      <DrawerContent className="max-h-[92vh] md:hidden">
+      <DrawerContent className="data-[vaul-drawer-direction=bottom]:max-h-[92dvh] md:hidden">
         <DrawerHeader className="hidden">
           <DrawerTitle>{email?.title}</DrawerTitle>
           <DrawerDescription>
             {t("from")} {email?.fromName}
           </DrawerDescription>
         </DrawerHeader>
-        <div className="h-[85vh] overflow-hidden">
+        <div className="h-[85dvh] min-h-0 overflow-hidden pb-[env(safe-area-inset-bottom)]">
           <EmailDetail email={email} onClose={onClose} />
         </div>
       </DrawerContent>

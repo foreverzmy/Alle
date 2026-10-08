@@ -108,5 +108,8 @@
   "unreadEmptyDesc": "暂时没有未读邮件，可以安心去做别的事。",
   "copy": "复制",
   "openLink": "打开链接",
-  "close": "关闭"
+  "close": "关闭",
+  "showMessageDetails": "详情",
+  "hideMessageDetails": "收起",
+  "messageBody": "邮件正文"
 }

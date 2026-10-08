@@ -108,5 +108,8 @@
   "unreadEmptyDesc": "No unread mail. You can get on with your day.",
   "copy": "Copy",
   "openLink": "Open link",
-  "close": "Close"
+  "close": "Close",
+  "showMessageDetails": "Details",
+  "hideMessageDetails": "Hide",
+  "messageBody": "Message body"
 }
