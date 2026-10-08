@@ -52,36 +52,31 @@ function EmailReader({ email, onClose }: { email: Email; onClose?: () => void })
   const detailsId = useId();
   const titleId = useId();
   const date = email.sentAt ? new Date(email.sentAt) : null;
-  const time = date && !Number.isNaN(date.getTime()) ? date.toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const validDate = date && !Number.isNaN(date.getTime()) ? date : null;
+  const locale = language === 'zh' ? 'zh-CN' : 'en-US';
+  const time = validDate ? validDate.toLocaleString(locale, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const compactTime = validDate ? validDate.toLocaleString(locale, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
   return <section aria-labelledby={titleId} className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
-    <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-5 text-xs text-muted-foreground lg:px-9">
-      <span className="flex items-center gap-2"><Mail className="size-3.5" strokeWidth={1.7} />{t(email.deletedAt ? 'trash' : email.archivedAt ? 'archive' : 'inbox')}<span className="text-border">/</span>{t('readingPane')}</span>
-      <div className="flex items-center gap-3">
-        <span className="flex items-center gap-1.5 text-[10px]"><span className="size-1 rounded-full bg-primary/60" />{t(email.readStatus === 1 ? 'readMail' : 'unreadMail')}</span>
-        {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')}><X className="size-4" /></Button>}
-      </div>
-    </div>
     <header className="shrink-0 border-b bg-card">
-      <div className="mx-auto max-w-[860px] px-5 py-3 lg:px-8 lg:py-4">
-        <h2 id={titleId} className="line-clamp-2 break-words text-lg font-semibold leading-snug tracking-tight [@media(max-height:520px)]:line-clamp-1 lg:text-xl">{email.title || t('noSubject')}</h2>
-        <div className="mt-3 flex items-center gap-3">
-          <EmailAvatar name={email.fromName || email.fromAddress || '?'} fromAddress={email.fromAddress} className="size-8 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 truncate text-[13px] font-medium">{email.fromName || email.fromAddress || t('unknownSender')}</p>
-              <time className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{time}</time>
-            </div>
-            <div className="mt-0.5 flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate text-[11px] text-muted-foreground">{t('to')} · {email.toAddress}</p>
-              <Button variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-[11px] text-muted-foreground" aria-expanded={detailsOpen} aria-controls={detailsId} onClick={() => {
-                setDetailsOpen(!detailsOpen);
-                if (!detailsOpen) scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]')?.scrollTo({ top: 0 });
-              }}>
-                {t(detailsOpen ? 'hideMessageDetails' : 'showMessageDetails')}
-                <ChevronDown className={`size-3 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
-              </Button>
-            </div>
-          </div>
+      <div className="mx-auto max-w-[860px] px-5 py-2.5 lg:px-8 lg:py-3">
+        <div className="flex items-start gap-2">
+          <h2 id={titleId} className="min-w-0 flex-1 line-clamp-2 break-words text-base font-semibold leading-snug tracking-tight [@media(max-height:520px)]:line-clamp-1 lg:text-lg">{email.title || t('noSubject')}</h2>
+          <span className="mt-1 flex h-4 shrink-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="size-1 rounded-full bg-primary/60" /><span className="sr-only sm:not-sr-only">{t(email.readStatus === 1 ? 'readMail' : 'unreadMail')}</span>
+          </span>
+        </div>
+        <div className="mt-1 flex min-w-0 items-center gap-2">
+          <EmailAvatar name={email.fromName || email.fromAddress || '?'} fromAddress={email.fromAddress} className="size-6 shrink-0" />
+          <p className="min-w-0 flex-1 truncate text-xs font-medium">{email.fromName || email.fromAddress || t('unknownSender')}</p>
+          <time dateTime={validDate?.toISOString()} title={time} className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{compactTime}</time>
+          <Button variant="ghost" size="sm" className="h-8 gap-1 px-1.5 text-[11px] text-muted-foreground" aria-expanded={detailsOpen} aria-controls={detailsId} onClick={() => {
+            setDetailsOpen(!detailsOpen);
+            if (!detailsOpen) scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]')?.scrollTo({ top: 0 });
+          }}>
+            {t(detailsOpen ? 'hideMessageDetails' : 'showMessageDetails')}
+            <ChevronDown className={`size-3 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
+          </Button>
+          {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')} className="text-muted-foreground"><X className="size-4" /></Button>}
         </div>
       </div>
     </header>
